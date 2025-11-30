@@ -7,8 +7,24 @@ class Settings(BaseSettings):
     # Environment
     environment: str = "development"  # development | staging | production
 
-    # Database
+    # Database (raw value from env)
     database_url: str = "postgresql+asyncpg://localhost/robuttal"
+
+    @property
+    def async_database_url(self) -> str:
+        """Return database URL with proper asyncpg dialect.
+
+        Railway URL-encodes + to _, so we need to fix it.
+        Also handles plain postgresql:// URLs by adding asyncpg.
+        """
+        url = self.database_url
+        # Fix Railway's URL encoding of + to _
+        if url.startswith("postgresql_asyncpg://"):
+            url = url.replace("postgresql_asyncpg://", "postgresql+asyncpg://", 1)
+        # Add asyncpg if missing
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
     # AI Provider API Keys
     anthropic_api_key: str = ""
