@@ -330,7 +330,7 @@ class JudgeService:
                     model=current_judge,
                     system_prompt=system_prompt,
                     messages=messages,
-                    max_tokens=1000,
+                    max_tokens=2500,  # Increased to accommodate detailed category analysis
                 )
                 break  # Success
             except ContentFilterError as e:
@@ -478,7 +478,7 @@ class JudgeService:
                     model=current_auditor,
                     system_prompt=system_prompt,
                     messages=messages,
-                    max_tokens=800,
+                    max_tokens=1500,  # Increased to accommodate detailed criterion analysis
                 )
                 break  # Success
             except ContentFilterError as e:
