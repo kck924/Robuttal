@@ -35,6 +35,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy application code
 COPY . .
 
+# Make startup script executable
+RUN chmod +x /app/start.sh
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser && \
     chown -R appuser:appuser /app
@@ -47,13 +50,4 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONFAULTHANDLER=1
 
-# Run migrations then start the application
-# Railway provides $PORT environment variable
-CMD sh -c "echo '=== Starting deployment ===' && \
-    echo 'Python version:' && python --version && \
-    echo 'Testing imports...' && \
-    python -c 'print(\"Testing basic import...\"); import app.config; print(\"Config OK\"); from app.config import get_settings; s = get_settings(); print(f\"DB URL prefix: {s.async_database_url[:30]}...\"); print(f\"Is Supabase: {s.is_supabase}\")' 2>&1 && \
-    echo 'Running alembic...' && \
-    alembic upgrade head 2>&1 && \
-    echo 'Starting uvicorn on port ${PORT:-8000}...' && \
-    exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} 2>&1"
+CMD ["/app/start.sh"]
