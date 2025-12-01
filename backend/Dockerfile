@@ -43,6 +43,9 @@ USER appuser
 # Expose port (Railway assigns dynamically via $PORT)
 EXPOSE 8000
 
+# Force unbuffered Python output so logs show immediately
+ENV PYTHONUNBUFFERED=1
+
 # Run migrations then start the application
 # Railway provides $PORT environment variable
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD sh -c "echo 'Starting alembic migrations...' && alembic upgrade head 2>&1 && echo 'Migrations done, starting uvicorn on port ${PORT:-8000}...' && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} 2>&1"
