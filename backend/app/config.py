@@ -17,7 +17,7 @@ class Settings(BaseSettings):
         Railway URL-encodes + to _, so we need to fix it.
         Also handles plain postgresql:// URLs by adding asyncpg.
         Also strips any leading/trailing whitespace Railway may add.
-        Adds SSL requirement for Supabase connections.
+        Note: SSL is handled via connect_args in database.py, not in URL.
         """
         url = self.database_url.strip()  # Remove any leading/trailing whitespace
         # Fix Railway's URL encoding of + to _
@@ -26,11 +26,12 @@ class Settings(BaseSettings):
         # Add asyncpg if missing
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        # Add SSL for Supabase pooler connections (asyncpg uses 'ssl' not 'sslmode')
-        if "pooler.supabase.com" in url and "ssl=" not in url:
-            separator = "&" if "?" in url else "?"
-            url = f"{url}{separator}ssl=require"
         return url
+
+    @property
+    def is_supabase(self) -> bool:
+        """Check if using Supabase pooler connection."""
+        return "pooler.supabase.com" in self.database_url
 
     # AI Provider API Keys
     anthropic_api_key: str = ""

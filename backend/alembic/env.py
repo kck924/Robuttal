@@ -50,14 +50,26 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
+    import ssl
+
+    # Build connect_args for asyncpg
+    connect_args = {
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+    }
+
+    # Add SSL for Supabase connections
+    if settings.is_supabase:
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        connect_args["ssl"] = ssl_context
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args={
-            "statement_cache_size": 0,
-            "prepared_statement_cache_size": 0,
-        },
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:
