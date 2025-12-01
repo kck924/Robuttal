@@ -362,9 +362,15 @@ export interface ScheduledDebateItem {
   is_blinded: boolean;
 }
 
+export interface UpcomingSlot {
+  scheduled_time: string;
+  slot_index: number;
+}
+
 export interface DailyScheduleResponse {
   date: string;
   debates: ScheduledDebateItem[];
+  upcoming_slots: UpcomingSlot[];
   total_scheduled: number;
   completed_count: number;
   in_progress_count: number;

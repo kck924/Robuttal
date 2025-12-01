@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DailyScheduleResponse, ScheduledDebateItem } from '@/lib/api';
+import { DailyScheduleResponse, ScheduledDebateItem, UpcomingSlot } from '@/lib/api';
 import { generateSlug } from '@/lib/api';
 
 interface DailyScheduleProps {
@@ -64,6 +64,34 @@ function getStatusBadge(status: string, winner: ScheduledDebateItem['winner']) {
     default:
       return null;
   }
+}
+
+function UpcomingSlotItem({ slot }: { slot: UpcomingSlot }) {
+  const { time, relative } = formatScheduledTime(slot.scheduled_time);
+
+  return (
+    <div className="block relative rounded-lg border border-dashed border-gray-200 bg-gray-50/30 p-3 pl-4">
+      {/* Header: Time */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs text-gray-400 tabular-nums">
+          {relative}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+          Upcoming
+        </span>
+      </div>
+
+      {/* Placeholder content */}
+      <h4 className="text-sm font-medium text-gray-500 leading-snug mb-2">
+        Debate scheduled for {time}
+      </h4>
+
+      <div className="text-xs text-gray-400">
+        Topic and models will be selected when the debate starts
+      </div>
+    </div>
+  );
 }
 
 function ScheduleItem({ debate, index }: { debate: ScheduledDebateItem; index: number }) {
@@ -148,6 +176,8 @@ function ScheduleItem({ debate, index }: { debate: ScheduledDebateItem; index: n
 
 export default function DailySchedule({ schedule }: DailyScheduleProps) {
   const hasDebates = schedule.debates.length > 0;
+  const hasUpcoming = schedule.upcoming_slots && schedule.upcoming_slots.length > 0;
+  const hasContent = hasDebates || hasUpcoming;
 
   return (
     <div className="card">
@@ -174,10 +204,15 @@ export default function DailySchedule({ schedule }: DailyScheduleProps) {
       </div>
 
       <div className="card-body">
-        {hasDebates ? (
+        {hasContent ? (
           <div className="space-y-2">
+            {/* Completed and in-progress debates */}
             {schedule.debates.map((debate, index) => (
               <ScheduleItem key={debate.id} debate={debate} index={index} />
+            ))}
+            {/* Upcoming time slots */}
+            {schedule.upcoming_slots?.map((slot) => (
+              <UpcomingSlotItem key={slot.slot_index} slot={slot} />
             ))}
           </div>
         ) : (

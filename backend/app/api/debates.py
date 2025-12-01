@@ -22,6 +22,7 @@ from app.schemas.debate import (
     ScheduledDebateItem,
     TopicSummary,
     TranscriptEntryResponse,
+    UpcomingSlot,
 )
 
 router = APIRouter(prefix="/api/debates", tags=["debates"])
@@ -130,10 +131,21 @@ async def get_todays_schedule(
     Get today's debate schedule.
 
     Returns all debates scheduled for today (UTC), ordered by scheduled time.
+    Also includes upcoming time slots that haven't had debates yet.
     """
+    # Fixed daily debate times (UTC) - same as scheduler.py
+    DEBATE_TIMES = [
+        (6, 0),   # 6:00 AM
+        (10, 0),  # 10:00 AM
+        (14, 0),  # 2:00 PM
+        (18, 0),  # 6:00 PM
+        (22, 0),  # 10:00 PM
+    ]
+
     # Get today's date boundaries in UTC
     # Use timezone-naive datetimes since the DB column is TIMESTAMP WITHOUT TIME ZONE
-    today = datetime.now(timezone.utc).date()
+    now = datetime.now(timezone.utc)
+    today = now.date()
     start_of_day = datetime.combine(today, datetime.min.time())
     end_of_day = start_of_day + timedelta(days=1)
 
@@ -163,7 +175,11 @@ async def get_todays_schedule(
     completed_count = 0
     in_progress_count = 0
 
+    # Track which time slots have debates
+    debate_hours = set()
     for debate in debates:
+        debate_hours.add(debate.scheduled_at.hour)
+
         if debate.status == DebateStatus.COMPLETED:
             completed_count += 1
         elif debate.status == DebateStatus.IN_PROGRESS:
@@ -216,10 +232,35 @@ async def get_todays_schedule(
             )
         )
 
+    # Build upcoming slots for times that haven't had debates yet
+    upcoming_slots = []
+    current_hour = now.hour
+    current_minute = now.minute
+
+    for slot_index, (hour, minute) in enumerate(DEBATE_TIMES):
+        # Skip if we already have a debate at this hour
+        if hour in debate_hours:
+            continue
+
+        # Create the scheduled time for today
+        slot_time = datetime.combine(today, datetime.min.time()).replace(
+            hour=hour, minute=minute
+        )
+
+        # Only include future slots (with a small buffer for slots about to start)
+        if hour > current_hour or (hour == current_hour and minute > current_minute - 5):
+            upcoming_slots.append(
+                UpcomingSlot(
+                    scheduled_time=slot_time,
+                    slot_index=slot_index,
+                )
+            )
+
     return DailyScheduleResponse(
         date=today.isoformat(),
         debates=schedule_items,
-        total_scheduled=len(schedule_items),
+        upcoming_slots=upcoming_slots,
+        total_scheduled=len(schedule_items) + len(upcoming_slots),
         completed_count=completed_count,
         in_progress_count=in_progress_count,
     )

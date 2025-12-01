@@ -208,11 +208,19 @@ class ScheduledDebateItem(BaseModel):
     is_blinded: bool = False
 
 
+class UpcomingSlot(BaseModel):
+    """An upcoming debate time slot that hasn't started yet."""
+
+    scheduled_time: datetime
+    slot_index: int  # 0-4 for the 5 daily slots
+
+
 class DailyScheduleResponse(BaseModel):
     """Daily debate schedule."""
 
     date: str  # ISO date string (YYYY-MM-DD)
     debates: list[ScheduledDebateItem]
+    upcoming_slots: list[UpcomingSlot]  # Time slots that haven't had debates yet
     total_scheduled: int
     completed_count: int
     in_progress_count: int
