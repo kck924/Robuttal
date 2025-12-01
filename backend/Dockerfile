@@ -50,4 +50,4 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONFAULTHANDLER=1
 
-CMD ["/app/start.sh"]
+CMD ["bash", "/app/start.sh"]
