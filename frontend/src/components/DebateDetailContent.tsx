@@ -154,19 +154,51 @@ function parseJudgmentContent(content: string): {
   winner?: string;
   reasoning?: string;
 } | null {
+  // First try direct JSON parse
   try {
     const parsed = JSON.parse(content.trim());
     if (parsed.pro_scores || parsed.pro_score !== undefined) return parsed;
   } catch {
-    const match = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-    if (match) {
+    // Continue to other methods
+  }
+
+  // Try extracting JSON from code fences (handles extra backticks)
+  // Match ```json or ``` followed by JSON object, handling various fence formats
+  const fenceMatch = content.match(/`{3,}(?:json)?\s*(\{[\s\S]*\})\s*`{3,}/);
+  if (fenceMatch) {
+    try {
+      return JSON.parse(fenceMatch[1]);
+    } catch {
+      // Continue to other methods
+    }
+  }
+
+  // Try to find a JSON object directly in the content (with balanced braces)
+  const jsonStart = content.indexOf('{');
+  if (jsonStart !== -1) {
+    let braceCount = 0;
+    let jsonEnd = -1;
+    for (let i = jsonStart; i < content.length; i++) {
+      if (content[i] === '{') braceCount++;
+      else if (content[i] === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+    if (jsonEnd !== -1) {
       try {
-        return JSON.parse(match[1]);
+        const jsonStr = content.slice(jsonStart, jsonEnd);
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.pro_scores || parsed.pro_score !== undefined) return parsed;
       } catch {
         // Fall through
       }
     }
   }
+
   return null;
 }
 
@@ -188,19 +220,51 @@ function parseAuditContent(content: string): {
   overall_score?: number;
   notes?: string;
 } | null {
+  // First try direct JSON parse
   try {
     const parsed = JSON.parse(content.trim());
     if (parsed.accuracy !== undefined) return parsed;
   } catch {
-    const match = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-    if (match) {
+    // Continue to other methods
+  }
+
+  // Try extracting JSON from code fences (handles extra backticks)
+  const fenceMatch = content.match(/`{3,}(?:json)?\s*(\{[\s\S]*\})\s*`{3,}/);
+  if (fenceMatch) {
+    try {
+      const parsed = JSON.parse(fenceMatch[1]);
+      if (parsed.accuracy !== undefined) return parsed;
+    } catch {
+      // Continue to other methods
+    }
+  }
+
+  // Try to find a JSON object directly in the content (with balanced braces)
+  const jsonStart = content.indexOf('{');
+  if (jsonStart !== -1) {
+    let braceCount = 0;
+    let jsonEnd = -1;
+    for (let i = jsonStart; i < content.length; i++) {
+      if (content[i] === '{') braceCount++;
+      else if (content[i] === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+    }
+    if (jsonEnd !== -1) {
       try {
-        return JSON.parse(match[1]);
+        const jsonStr = content.slice(jsonStart, jsonEnd);
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.accuracy !== undefined) return parsed;
       } catch {
         // Fall through
       }
     }
   }
+
   return null;
 }
 
