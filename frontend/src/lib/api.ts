@@ -413,12 +413,16 @@ export async function getTopics(params?: {
   limit?: number;
   offset?: number;
   submitted_by?: string;
+  search?: string;
+  category?: string;
 }): Promise<TopicListResponse> {
   const searchParams = new URLSearchParams();
   if (params?.status) searchParams.set('status', params.status);
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   if (params?.submitted_by) searchParams.set('submitted_by', params.submitted_by);
+  if (params?.search) searchParams.set('search', params.search);
+  if (params?.category) searchParams.set('category', params.category);
 
   const query = searchParams.toString();
   return fetchAPI(`/api/topics${query ? `?${query}` : ''}`);

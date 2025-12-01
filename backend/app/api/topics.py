@@ -27,19 +27,23 @@ router = APIRouter(prefix="/api/topics", tags=["topics"])
 async def list_topics(
     status: TopicStatus = Query(default=TopicStatus.PENDING),
     submitted_by: str | None = Query(default=None),
+    search: str | None = Query(default=None, min_length=2, max_length=100),
+    category: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> TopicListResponse:
     """
-    List topics with pagination.
+    List topics with pagination and search.
 
     - **status**: Filter by topic status (default: pending)
     - **submitted_by**: Filter by submitter email (for "Your Topics" view)
+    - **search**: Search topics by title (case-insensitive, min 2 chars)
+    - **category**: Filter by category/subdomain
     - **limit**: Number of topics to return (1-100)
     - **offset**: Number of topics to skip
 
-    Topics are sorted by vote_count descending, then by created_at descending.
+    Topics are sorted by vote_count descending, then randomly for equal votes.
     """
     # Build query
     query = select(Topic)
@@ -53,6 +57,14 @@ async def list_topics(
             query = query.where(Topic.status == status)
     else:
         query = query.where(Topic.status == status)
+
+    # Apply search filter (case-insensitive)
+    if search:
+        query = query.where(Topic.title.ilike(f"%{search}%"))
+
+    # Apply category filter
+    if category:
+        query = query.where(Topic.category == category)
 
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Topic, DailyScheduleResponse, TaxonomyResponse } from '@/lib/api';
+import { Topic, DailyScheduleResponse, TaxonomyResponse, getTopics } from '@/lib/api';
 import TopicSubmitForm from './TopicSubmitForm';
 import TopicCard from './TopicCard';
 import NextDebateTimer from './NextDebateTimer';
@@ -47,6 +47,48 @@ export default function TopicsContent({
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [topics, setTopics] = useState(initialTopics);
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTotal, setSearchTotal] = useState<number | null>(null);
+
+  // Debounced search function
+  const performSearch = useCallback(async (query: string, category: string | null) => {
+    if (query.length === 0 && !category) {
+      // Reset to initial topics
+      setTopics(initialTopics);
+      setSearchTotal(null);
+      return;
+    }
+
+    if (query.length > 0 && query.length < 2) {
+      // Don't search with less than 2 chars
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const result = await getTopics({
+        search: query || undefined,
+        category: category || undefined,
+        limit: 50,
+      });
+      setTopics(result.topics);
+      setSearchTotal(result.total);
+    } catch (error) {
+      console.error('Search failed:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [initialTopics]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performSearch(searchQuery, selectedCategory);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedCategory, performSearch]);
 
   // Auto-open submit form if ?submit=true is in the URL
   useEffect(() => {
@@ -54,6 +96,13 @@ export default function TopicsContent({
       setShowSubmitForm(true);
     }
   }, [searchParams]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory(null);
+    setTopics(initialTopics);
+    setSearchTotal(null);
+  };
 
   const scheduledDebates = schedule?.debates || [];
 
@@ -136,7 +185,9 @@ export default function TopicsContent({
                   {isUserFilter ? 'Your Submissions' : 'All Topics'}
                 </h2>
                 <span className="text-sm text-gray-500">
-                  {isUserFilter
+                  {searchTotal !== null
+                    ? `${searchTotal} results`
+                    : isUserFilter
                     ? `${topics.length} ${topics.length === 1 ? 'topic' : 'topics'}`
                     : `${topics.length} topics · ${eligibleTopics} eligible`
                   }
@@ -148,6 +199,71 @@ export default function TopicsContent({
                   : 'Vote on topics to help decide what gets debated next'
                 }
               </p>
+
+              {/* Search Bar */}
+              {!isUserFilter && (
+                <div className="mt-4 space-y-3">
+                  <div className="relative">
+                    <svg
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Search topics..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Category Filter Pills */}
+                  <div className="flex flex-wrap gap-2">
+                    {(taxonomy?.domains || []).map((domain) => (
+                      domain.subdomains.map((sub) => (
+                        <button
+                          key={sub.subdomain}
+                          onClick={() => setSelectedCategory(
+                            selectedCategory === sub.subdomain ? null : sub.subdomain
+                          )}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                            selectedCategory === sub.subdomain
+                              ? 'bg-primary-600 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {sub.subdomain}
+                        </button>
+                      ))
+                    )).flat().slice(0, 12)}
+                    {(searchQuery || selectedCategory) && (
+                      <button
+                        onClick={clearFilters}
+                        className="px-2.5 py-1 text-xs font-medium rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="divide-y divide-gray-100">
