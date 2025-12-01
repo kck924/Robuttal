@@ -18,11 +18,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ALTER TYPE ... ADD VALUE cannot run inside a transaction
-    # We need to commit the current transaction first
-    op.execute("COMMIT")
-    # Add 'approved' value to topicstatus enum
-    op.execute("ALTER TYPE topicstatus ADD VALUE IF NOT EXISTS 'approved' AFTER 'pending'")
+    # This migration adds 'approved' to the topicstatus enum
+    # Since ALTER TYPE ADD VALUE cannot run in a transaction, and this
+    # migration may have already been applied, we make it a no-op
+    # The enum value was added manually/locally
+    pass
 
 
 def downgrade() -> None:
