@@ -26,10 +26,10 @@ class Settings(BaseSettings):
         # Add asyncpg if missing
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        # Add SSL for Supabase connections (required for external connections)
-        if "supabase.co" in url and "sslmode=" not in url:
+        # Add SSL for Supabase pooler connections (asyncpg uses 'ssl' not 'sslmode')
+        if "pooler.supabase.com" in url and "ssl=" not in url:
             separator = "&" if "?" in url else "?"
-            url = f"{url}{separator}sslmode=require"
+            url = f"{url}{separator}ssl=require"
         return url
 
     # AI Provider API Keys
