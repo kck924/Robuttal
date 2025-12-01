@@ -756,14 +756,30 @@ class JudgeService:
         import re
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
         if json_match:
-            return json.loads(json_match.group(1))
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
 
-        # Try to find raw JSON object
-        json_match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(0))
+        # Try to find JSON object by matching balanced braces
+        # This handles nested objects properly
+        start_idx = text.find("{")
+        if start_idx != -1:
+            brace_count = 0
+            for i, char in enumerate(text[start_idx:], start_idx):
+                if char == "{":
+                    brace_count += 1
+                elif char == "}":
+                    brace_count -= 1
+                    if brace_count == 0:
+                        json_str = text[start_idx : i + 1]
+                        try:
+                            return json.loads(json_str)
+                        except json.JSONDecodeError:
+                            pass
+                        break
 
-        raise ValueError("No valid JSON found in response")
+        raise ValueError(f"No valid JSON found in response: {text[:500]}")
 
     def _parse_judgment(self, response: str) -> JudgmentResult:
         """Parse the judge's response into a JudgmentResult."""
@@ -807,7 +823,8 @@ class JudgeService:
         else:
             # Fall back to old format (pro_score/con_score integers)
             if "pro_score" not in data or "con_score" not in data:
-                raise ValueError("Missing required score fields in judgment")
+                logger.error(f"Missing score fields. Got keys: {list(data.keys())}, data: {data}")
+                raise ValueError(f"Missing required score fields in judgment. Got keys: {list(data.keys())}")
             pro_score = int(data["pro_score"])
             con_score = int(data["con_score"])
 
