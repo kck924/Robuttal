@@ -8,9 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import Model, Topic, TopicSource, TopicStatus, TranscriptEntry
+from app.models import Debate, DebateStatus, Model, Topic, TopicSource, TopicStatus, TranscriptEntry
 from app.schemas.topic import TopicResponse
 from app.services.scheduler import get_topic_stats, run_single_debate
+from app.services.judge import JudgeService
+from app.services.elo import update_elos_for_debate
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -119,6 +121,78 @@ async def trigger_debate(
         raise HTTPException(
             status_code=500,
             detail=f"Debate failed: {str(e)}",
+        )
+
+
+class RetryJudgingResponse(BaseModel):
+    """Response from retrying judging on a stuck debate."""
+
+    success: bool
+    message: str
+    debate_id: str
+    winner: str | None = None
+
+
+@router.post("/debates/{debate_id}/retry-judging", response_model=RetryJudgingResponse)
+async def retry_judging(
+    debate_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> RetryJudgingResponse:
+    """
+    Retry judging for a debate stuck in 'judging' status.
+
+    This will:
+    1. Run the judge phase
+    2. Run the audit phase
+    3. Update Elo ratings
+    4. Mark debate as completed
+    """
+    # Get the debate
+    result = await db.execute(select(Debate).where(Debate.id == debate_id))
+    debate = result.scalar_one_or_none()
+
+    if debate is None:
+        raise HTTPException(status_code=404, detail="Debate not found")
+
+    if debate.status != DebateStatus.JUDGING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Debate is not in judging status (current: {debate.status.value})",
+        )
+
+    try:
+        # Run judge and audit
+        judge_service = JudgeService(db)
+        await judge_service.judge_debate(debate_id)
+        await judge_service.audit_judge(debate_id)
+
+        # Update Elo ratings
+        await update_elos_for_debate(db, debate_id)
+
+        # Mark topic as debated
+        topic_result = await db.execute(select(Topic).where(Topic.id == debate.topic_id))
+        topic = topic_result.scalar_one_or_none()
+        if topic:
+            topic.status = TopicStatus.DEBATED
+            topic.debated_at = datetime.utcnow()
+
+        await db.commit()
+
+        # Refresh to get winner
+        await db.refresh(debate)
+
+        return RetryJudgingResponse(
+            success=True,
+            message="Judging completed successfully",
+            debate_id=str(debate_id),
+            winner=debate.winner.name if debate.winner else None,
+        )
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Judging failed: {str(e)}",
         )
 
 
