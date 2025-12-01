@@ -60,8 +60,10 @@ async def list_topics(
     total = total_result.scalar() or 0
 
     # Apply ordering and pagination
+    # Use random() as tiebreaker for topics with same vote count
+    # This ensures seeded topics (all vote_count=0) appear in random order
     query = (
-        query.order_by(Topic.vote_count.desc(), Topic.created_at.desc())
+        query.order_by(Topic.vote_count.desc(), func.random())
         .offset(offset)
         .limit(limit)
     )
