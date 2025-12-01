@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import UserMenu from './UserMenu';
+import { trackNavClick, trackExternalLink } from '@/lib/analytics';
 
 const navigation = [
   { name: 'Arena', href: '/' },
@@ -50,6 +51,7 @@ export default function Header() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => trackNavClick(item.name.toLowerCase())}
                   className={`nav-link ${isActive ? 'nav-link-active' : ''}`}
                 >
                   {item.name}
@@ -63,6 +65,7 @@ export default function Header() {
             {/* Submit Topic CTA */}
             <Link
               href="/topics?submit=true"
+              onClick={() => trackNavClick('submit_topic')}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-mono font-semibold tracking-wide uppercase text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-all shadow-[0_0_15px_rgba(79,70,229,0.5)] hover:shadow-[0_0_25px_rgba(79,70,229,0.7)] border border-primary-400/50"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,6 +79,7 @@ export default function Header() {
               href="https://ko-fi.com/robuttal"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackExternalLink('https://ko-fi.com/robuttal', 'header_support')}
               className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-mono font-medium text-gray-300 bg-gray-900 hover:bg-gray-800 rounded-lg transition-all border border-gray-700 hover:border-primary-500/50 hover:shadow-[0_0_15px_rgba(79,70,229,0.3)] group"
               title="Support Robuttal on Ko-fi"
             >
@@ -142,7 +146,10 @@ export default function Header() {
                   <Link
                     key={item.name}
                     href={item.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={() => {
+                      trackNavClick(item.name.toLowerCase());
+                      setIsMobileMenuOpen(false);
+                    }}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-primary-50 text-primary-700'
@@ -155,7 +162,10 @@ export default function Header() {
               })}
               <Link
                 href="/topics?submit=true"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onClick={() => {
+                  trackNavClick('submit_topic');
+                  setIsMobileMenuOpen(false);
+                }}
                 className="mx-4 mt-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg text-center transition-colors"
               >
                 Submit Topic

@@ -7,6 +7,7 @@ import { Topic, DailyScheduleResponse, TaxonomyResponse, getTopics } from '@/lib
 import TopicSubmitForm from './TopicSubmitForm';
 import TopicCard from './TopicCard';
 import NextDebateTimer from './NextDebateTimer';
+import { trackTopicSearch } from '@/lib/analytics';
 
 interface TopicsContentProps {
   topics: Topic[];
@@ -75,6 +76,10 @@ export default function TopicsContent({
       });
       setTopics(result.topics);
       setSearchTotal(result.total);
+      // Track search event
+      if (query) {
+        trackTopicSearch(query, result.total);
+      }
     } catch (error) {
       console.error('Search failed:', error);
     } finally {

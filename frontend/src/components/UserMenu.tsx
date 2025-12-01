@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Image from 'next/image';
+import { trackLogin, trackLogout, trackSignUpStart, trackNavClick } from '@/lib/analytics';
 
 const ADMIN_EMAILS = ['kevinklein333@gmail.com'];
 
@@ -34,7 +35,10 @@ export default function UserMenu() {
   if (!session) {
     return (
       <button
-        onClick={() => signIn('google')}
+        onClick={() => {
+          trackSignUpStart('google');
+          signIn('google');
+        }}
         className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -115,7 +119,10 @@ export default function UserMenu() {
             <a
               href="/profile"
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                trackNavClick('profile');
+                setIsOpen(false);
+              }}
             >
               <svg
                 className="w-4 h-4"
@@ -135,7 +142,10 @@ export default function UserMenu() {
             <a
               href="/topics?filter=mine"
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                trackNavClick('your_topics');
+                setIsOpen(false);
+              }}
             >
               <svg
                 className="w-4 h-4"
@@ -185,7 +195,10 @@ export default function UserMenu() {
           {/* Sign Out */}
           <div className="border-t border-gray-100 py-1">
             <button
-              onClick={() => signOut()}
+              onClick={() => {
+                trackLogout();
+                signOut();
+              }}
               className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
             >
               <svg

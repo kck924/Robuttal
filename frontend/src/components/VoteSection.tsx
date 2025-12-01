@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ModelSummary, VoteTally, voteOnDebate } from '@/lib/api';
+import { trackDebateVote, trackError } from '@/lib/analytics';
 
 interface VoteSectionProps {
   debateId: string;
@@ -45,6 +46,9 @@ export default function VoteSection({
       if (result.voted) {
         setHasVoted(true);
         setVotedFor(modelId);
+        const position = modelId === debaterPro.id ? 'pro' : 'con';
+        const modelName = modelId === debaterPro.id ? debaterPro.name : debaterCon.name;
+        trackDebateVote(debateId, modelName, position);
 
         // Optimistically update vote counts
         if (votes) {
@@ -76,6 +80,7 @@ export default function VoteSection({
       }
     } catch (err) {
       setError('Failed to submit vote. Please try again.');
+      trackError('debate_vote_failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsVoting(false);
     }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Topic, voteTopic } from '@/lib/api';
 import { useToastActions } from './Toast';
+import { trackTopicVote, trackError } from '@/lib/analytics';
 
 interface TopicCardProps {
   topic: Topic;
@@ -71,6 +72,7 @@ export default function TopicCard({ topic, showStatus = false, showSource = fals
       setVoteCount((prev) => prev + 1);
       setHasVoted(true);
       toast.success('Vote submitted!');
+      trackTopicVote(topic.id, topic.title);
       onVote?.();
     } catch (err) {
       if (err instanceof Error && err.message.includes('already voted')) {
@@ -80,6 +82,7 @@ export default function TopicCard({ topic, showStatus = false, showSource = fals
       } else {
         setError('Failed to vote');
         toast.error('Failed to submit vote. Please try again.');
+        trackError('topic_vote_failed', err instanceof Error ? err.message : 'Unknown error');
       }
     } finally {
       setIsVoting(false);

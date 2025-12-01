@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { createTopic, Topic } from '@/lib/api';
 import { useToastActions } from './Toast';
+import { trackTopicSubmit, trackSignUpStart, trackError } from '@/lib/analytics';
 
 interface TopicSubmitFormProps {
   onSuccess?: () => void;
@@ -27,6 +28,7 @@ export default function TopicSubmitForm({ onSuccess }: TopicSubmitFormProps) {
     // Check authentication
     if (!session) {
       toast.error('Please sign in to submit a topic');
+      trackSignUpStart('google');
       signIn('google');
       return;
     }
@@ -56,12 +58,14 @@ export default function TopicSubmitForm({ onSuccess }: TopicSubmitFormProps) {
       setSuccessTopic(topic);
       setTitle('');
       toast.success('Topic submitted and categorized! Get others to vote for it.');
+      trackTopicSubmit(topic.subdomain || topic.category);
 
       onSuccess?.();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit topic';
       setError(errorMessage);
       toast.error(errorMessage);
+      trackError('topic_submit_failed', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -124,7 +128,10 @@ export default function TopicSubmitForm({ onSuccess }: TopicSubmitFormProps) {
             Sign in with your Google account to submit topics.
           </p>
           <button
-            onClick={() => signIn('google')}
+            onClick={() => {
+              trackSignUpStart('google');
+              signIn('google');
+            }}
             className="btn-primary inline-flex items-center gap-2"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

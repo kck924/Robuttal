@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DebateDetail, VoteTally, voteOnDebate, generateSlug } from '@/lib/api';
 import { useToastActions } from './Toast';
+import { trackDebateView, trackDebateShare, trackDebateVote, trackCopyToClipboard, trackError } from '@/lib/analytics';
 
 // Social share button component
 function ShareButtons({ debate }: { debate: DebateDetail }) {
@@ -22,21 +23,25 @@ function ShareButtons({ debate }: { debate: DebateDetail }) {
   const hashtags = 'AI,AIDebate,Robuttal';
 
   const handleTwitterShare = () => {
+    trackDebateShare(debate.id, 'twitter');
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(getShareUrl())}&hashtags=${hashtags}`;
     window.open(url, '_blank', 'noopener,noreferrer,width=550,height=420');
   };
 
   const handleFacebookShare = () => {
+    trackDebateShare(debate.id, 'facebook');
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`;
     window.open(url, '_blank', 'noopener,noreferrer,width=550,height=420');
   };
 
   const handleLinkedInShare = () => {
+    trackDebateShare(debate.id, 'linkedin');
     const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(getShareUrl())}`;
     window.open(url, '_blank', 'noopener,noreferrer,width=550,height=420');
   };
 
   const handleRedditShare = () => {
+    trackDebateShare(debate.id, 'reddit');
     const url = `https://www.reddit.com/submit?url=${encodeURIComponent(getShareUrl())}&title=${encodeURIComponent(shareText)}`;
     window.open(url, '_blank', 'noopener,noreferrer,width=550,height=420');
   };
@@ -46,6 +51,7 @@ function ShareButtons({ debate }: { debate: DebateDetail }) {
       await navigator.clipboard.writeText(getShareUrl());
       setCopied(true);
       toast.success('Link copied to clipboard');
+      trackCopyToClipboard('debate_link');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error('Failed to copy link');
@@ -787,6 +793,16 @@ export default function DebateDetailContent({
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const toast = useToastActions();
 
+  // Track debate view on mount
+  useEffect(() => {
+    trackDebateView(
+      debate.id,
+      debate.topic.title,
+      debate.debater_pro.name,
+      debate.debater_con.name
+    );
+  }, [debate.id, debate.topic.title, debate.debater_pro.name, debate.debater_con.name]);
+
   const proWon = debate.winner?.id === debate.debater_pro.id;
   const conWon = debate.winner?.id === debate.debater_con.id;
 
@@ -840,6 +856,9 @@ export default function DebateDetailContent({
 
       setHasVoted(true);
       toast.success('Vote submitted! Thanks for participating.');
+      const position = modelId === debate.debater_pro.id ? 'pro' : 'con';
+      const modelName = modelId === debate.debater_pro.id ? debate.debater_pro.name : debate.debater_con.name;
+      trackDebateVote(debate.id, modelName, position);
       // Optimistically update vote count
       if (votes) {
         const isPro = modelId === debate.debater_pro.id;
@@ -853,6 +872,7 @@ export default function DebateDetailContent({
     } catch (error) {
       console.error('Failed to vote:', error);
       toast.error('Failed to submit vote. Please try again.');
+      trackError('debate_vote_failed', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setIsVoting(false);
     }
