@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Timeout for judge/auditor API calls (in seconds)
 # This prevents hanging indefinitely on slow providers
-JUDGE_API_TIMEOUT_SECONDS = 120  # 2 minutes - generous for long transcripts
+JUDGE_API_TIMEOUT_SECONDS = 600  # 10 minutes - allow slow models like Gemini 3 Pro
 
 
 class CategoryScores(TypedDict):
