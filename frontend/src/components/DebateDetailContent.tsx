@@ -778,19 +778,36 @@ interface SubstitutionInfo {
   excusedModel: string;
   replacementModel: string;
   role: string;
+  reason: 'content_filter' | 'timeout';
 }
 
 function parseSubstitutionNotice(content: string): SubstitutionInfo | null {
-  const match = content.match(
+  // Try content filter pattern first
+  const contentFilterMatch = content.match(
     /\[SUBSTITUTION NOTICE: (.+?) was unable to continue due to content policy restrictions\. (.+?) has been substituted as the (.+?)\.\]/
   );
-  if (match) {
+  if (contentFilterMatch) {
     return {
-      excusedModel: match[1],
-      replacementModel: match[2],
-      role: match[3].toLowerCase(),
+      excusedModel: contentFilterMatch[1],
+      replacementModel: contentFilterMatch[2],
+      role: contentFilterMatch[3].toLowerCase(),
+      reason: 'content_filter',
     };
   }
+
+  // Try timeout pattern
+  const timeoutMatch = content.match(
+    /\[SUBSTITUTION NOTICE: (.+?) was unable to continue due to a response timeout\. (.+?) has been substituted as the (.+?)\.\]/
+  );
+  if (timeoutMatch) {
+    return {
+      excusedModel: timeoutMatch[1],
+      replacementModel: timeoutMatch[2],
+      role: timeoutMatch[3].toLowerCase(),
+      reason: 'timeout',
+    };
+  }
+
   return null;
 }
 
@@ -810,6 +827,25 @@ function SubstitutionBanner({ notices }: { notices: { id: string; content: strin
 
   if (parsed.length === 0) return null;
 
+  // Determine the banner type based on reasons
+  const hasContentFilter = parsed.some(p => p.info!.reason === 'content_filter');
+  const hasTimeout = parsed.some(p => p.info!.reason === 'timeout');
+
+  // Determine label and description based on substitution type(s)
+  let bannerLabel: string;
+  let bannerDescription: string;
+
+  if (hasContentFilter && hasTimeout) {
+    bannerLabel = 'Model substitutions';
+    bannerDescription = 'Some models were replaced due to content filter restrictions or response timeouts. Replacement models completed these roles.';
+  } else if (hasTimeout) {
+    bannerLabel = 'Timeout substitution';
+    bannerDescription = 'The original model timed out while responding. A replacement model completed the role.';
+  } else {
+    bannerLabel = 'Safety filter substitution';
+    bannerDescription = "The original model's content filter blocked the debate topic. A replacement model completed the role.";
+  }
+
   return (
     <div className="px-3 sm:px-4 py-2 sm:py-3 bg-gray-50 border-b border-gray-200">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
@@ -827,7 +863,7 @@ function SubstitutionBanner({ notices }: { notices: { id: string; content: strin
               d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
             />
           </svg>
-          <span>Safety filter substitution</span>
+          <span>{bannerLabel}</span>
         </div>
         <span className="text-gray-300 hidden sm:inline">|</span>
         {parsed.map(({ entry, info }, idx) => (
@@ -841,7 +877,7 @@ function SubstitutionBanner({ notices }: { notices: { id: string; content: strin
         ))}
       </div>
       <p className="text-xs text-gray-400 mt-1.5">
-        The original model&apos;s content filter blocked the debate topic. A replacement model completed the role.
+        {bannerDescription}
       </p>
     </div>
   );

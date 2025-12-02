@@ -236,13 +236,23 @@ class JudgeService:
         replacement_model: Model,
         role: str,
         phase: DebatePhase,
+        reason: str = "content_filter",
     ) -> TranscriptEntry:
-        """Add a transcript entry noting the model substitution."""
+        """Add a transcript entry noting the model substitution.
+
+        Args:
+            reason: Either "content_filter" or "timeout"
+        """
         position = DebatePosition.JUDGE if role == "judge" else DebatePosition.AUDITOR
+
+        if reason == "timeout":
+            reason_text = "a response timeout"
+        else:
+            reason_text = "content policy restrictions"
 
         note_content = (
             f"[SUBSTITUTION NOTICE: {excused_model.name} was unable to continue due to "
-            f"content policy restrictions. {replacement_model.name} has been substituted "
+            f"{reason_text}. {replacement_model.name} has been substituted "
             f"as the {role.title()}.]"
         )
 
