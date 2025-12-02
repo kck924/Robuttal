@@ -175,13 +175,18 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
             # Flush to persist transcript entries, then commit and start fresh session
             # This ensures the judge service sees all the entries
             await db.commit()
+            logger.info(f"Debate {debate.id} completed debate phase, ready for judgment")
 
             # 2. Judge the debate
+            logger.info(f"Starting judgment for debate {debate.id} with judge {judge.name}")
             judge_service = JudgeService(db)
             await judge_service.judge_debate(debate.id)
+            logger.info(f"Judgment completed for debate {debate.id}")
 
             # 3. Audit the judge
+            logger.info(f"Starting audit for debate {debate.id} with auditor {auditor.name}")
             await judge_service.audit_judge(debate.id)
+            logger.info(f"Audit completed for debate {debate.id}")
 
             # Merge any content filter excuses from judge service
             if judge_service.content_filter_excuses:
@@ -312,6 +317,77 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
 
             if attempt >= MAX_CONTENT_FILTER_RESTARTS:
                 logger.error(f"Max restarts exceeded for topic: {topic.title}")
+                topic.status = TopicStatus.PENDING
+                if content_filter_excuses:
+                    debate.analysis_metadata = debate.analysis_metadata or {}
+                    debate.analysis_metadata["content_filter_excuses"] = content_filter_excuses
+                await db.flush()
+                raise
+
+            continue
+
+        except TimeoutError as e:
+            # Handle timeout from judge/auditor API calls (slow providers)
+            error_msg = str(e)
+            logger.warning(f"TimeoutError during debate: {error_msg}")
+
+            # Determine which model timed out from the error message
+            # TimeoutError message format: "API call to {model.name} timed out..."
+            timed_out_model = None
+            for model in [judge, auditor, debater_pro, debater_con]:
+                if model.name in error_msg:
+                    timed_out_model = model
+                    break
+
+            if timed_out_model:
+                excused_model_ids.add(timed_out_model.id)
+
+                # Determine role
+                if timed_out_model.id == judge.id:
+                    role = "judge"
+                elif timed_out_model.id == auditor.id:
+                    role = "auditor"
+                elif timed_out_model.id == debater_pro.id:
+                    role = "debater_pro"
+                else:
+                    role = "debater_con"
+
+                content_filter_excuses.append({
+                    "model_id": str(timed_out_model.id),
+                    "model_name": timed_out_model.name,
+                    "role": role,
+                    "provider": timed_out_model.provider,
+                    "error_message": error_msg,
+                    "attempt": attempt + 1,
+                    "reason": "timeout",
+                })
+                timed_out_model.times_excused += 1
+                logger.info(f"{role.title()} {timed_out_model.name} timed out, will retry with different model")
+            else:
+                # Couldn't identify the model - excuse the judge as most likely culprit
+                excused_model_ids.add(judge.id)
+                content_filter_excuses.append({
+                    "model_id": str(judge.id),
+                    "model_name": judge.name,
+                    "role": "judge",
+                    "provider": judge.provider,
+                    "error_message": error_msg,
+                    "attempt": attempt + 1,
+                    "reason": "timeout",
+                })
+                judge.times_excused += 1
+                logger.info(f"Judge {judge.name} presumed timed out, will retry with different judge")
+
+            # Delete transcript entries and retry
+            await db.execute(
+                TranscriptEntry.__table__.delete().where(
+                    TranscriptEntry.debate_id == debate.id
+                )
+            )
+            await db.flush()
+
+            if attempt >= MAX_CONTENT_FILTER_RESTARTS:
+                logger.error(f"Max restarts exceeded (timeouts) for topic: {topic.title}")
                 topic.status = TopicStatus.PENDING
                 if content_filter_excuses:
                     debate.analysis_metadata = debate.analysis_metadata or {}

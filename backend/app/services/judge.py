@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import uuid
@@ -21,6 +22,10 @@ from app.providers import get_provider, ALL_MODELS
 from app.providers.base import ContentFilterError
 
 logger = logging.getLogger(__name__)
+
+# Timeout for judge/auditor API calls (in seconds)
+# This prevents hanging indefinitely on slow providers
+JUDGE_API_TIMEOUT_SECONDS = 120  # 2 minutes - generous for long transcripts
 
 
 class CategoryScores(TypedDict):
@@ -710,7 +715,10 @@ class JudgeService:
         messages: list[dict],
         max_tokens: int,
     ) -> str:
-        """Call an AI model and return its response."""
+        """Call an AI model and return its response.
+
+        Includes a timeout to prevent hanging indefinitely on slow providers.
+        """
         # Find the model config by api_model_id
         model_config = None
         for config in ALL_MODELS.values():
@@ -727,11 +735,23 @@ class JudgeService:
             api_key=self._api_keys[model.provider],
         )
 
-        return await provider.complete(
-            system_prompt=system_prompt,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
+        try:
+            return await asyncio.wait_for(
+                provider.complete(
+                    system_prompt=system_prompt,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                ),
+                timeout=JUDGE_API_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                f"API call to {model.name} ({model.provider}) timed out "
+                f"after {JUDGE_API_TIMEOUT_SECONDS}s"
+            )
+            raise TimeoutError(
+                f"API call to {model.name} timed out after {JUDGE_API_TIMEOUT_SECONDS}s"
+            )
 
     def _extract_json(self, text: str) -> dict:
         """
