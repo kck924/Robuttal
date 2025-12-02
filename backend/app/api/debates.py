@@ -134,12 +134,23 @@ async def get_todays_schedule(
     Also includes upcoming time slots that haven't had debates yet.
     """
     # Fixed daily debate times (UTC) - same as scheduler.py
+    # TEMPORARY: Running every 30 mins for monitoring (Dec 2, 2025)
+    # Revert to original schedule after testing:
+    # DEBATE_TIMES = [(6, 0), (10, 0), (14, 0), (18, 0), (22, 0)]
     DEBATE_TIMES = [
+        (2, 0),   # 2:00 AM
+        (2, 30),  # 2:30 AM
+        (3, 0),   # 3:00 AM
+        (3, 30),  # 3:30 AM
+        (4, 0),   # 4:00 AM
+        (4, 30),  # 4:30 AM
+        (5, 0),   # 5:00 AM
+        (5, 30),  # 5:30 AM
         (6, 0),   # 6:00 AM
-        (10, 0),  # 10:00 AM
-        (14, 0),  # 2:00 PM
-        (18, 0),  # 6:00 PM
-        (22, 0),  # 10:00 PM
+        (6, 30),  # 6:30 AM
+        (7, 0),   # 7:00 AM
+        (7, 30),  # 7:30 AM
+        (8, 0),   # 8:00 AM
     ]
 
     # Get today's date boundaries in UTC
