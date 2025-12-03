@@ -37,6 +37,7 @@ export default function ArchiveContent({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [retryCount, setRetryCount] = useState(0);
 
   // Track if this is the first render with valid initial data
@@ -50,8 +51,8 @@ export default function ArchiveContent({
 
   // Generate cache key for current filters
   const getCacheKey = useCallback((pageNum: number) => {
-    return `${pageNum}-${selectedModel}-${selectedCategory}-${dateFrom}-${dateTo}`;
-  }, [selectedModel, selectedCategory, dateFrom, dateTo]);
+    return `${pageNum}-${selectedModel}-${selectedCategory}-${dateFrom}-${dateTo}-${searchQuery}`;
+  }, [selectedModel, selectedCategory, dateFrom, dateTo, searchQuery]);
 
   // Apply client-side filters
   const applyFilters = useCallback((debates: DebateListItem[]) => {
@@ -80,8 +81,15 @@ export default function ArchiveContent({
       });
     }
 
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((d) =>
+        d.topic.title.toLowerCase().includes(query)
+      );
+    }
+
     return filtered;
-  }, [selectedCategory, dateFrom, dateTo]);
+  }, [selectedCategory, dateFrom, dateTo, searchQuery]);
 
   // Prefetch a specific page
   const prefetchPage = useCallback(async (pageNum: number) => {
@@ -115,7 +123,7 @@ export default function ArchiveContent({
 
   // Single effect that handles all fetching
   useEffect(() => {
-    const isFirstPageNoFilters = page === 1 && !selectedModel && !selectedCategory && !dateFrom && !dateTo;
+    const isFirstPageNoFilters = page === 1 && !selectedModel && !selectedCategory && !dateFrom && !dateTo && !searchQuery;
 
     // Only skip on true first render with valid data and no retry requested
     if (isFirstRender.current && isFirstPageNoFilters && hasValidInitialData.current && retryCount === 0) {
@@ -192,12 +200,12 @@ export default function ArchiveContent({
     return () => {
       cancelled = true;
     };
-  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, retryCount, getCacheKey, applyFilters, prefetchPage, initialTotal]);
+  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, searchQuery, retryCount, getCacheKey, applyFilters, prefetchPage, initialTotal]);
 
   // Clear cache when filters change
   useEffect(() => {
     pageCache.current.clear();
-  }, [selectedModel, selectedCategory, dateFrom, dateTo]);
+  }, [selectedModel, selectedCategory, dateFrom, dateTo, searchQuery]);
 
   const handleRetry = () => {
     setRetryCount((c) => c + 1);
@@ -208,6 +216,7 @@ export default function ArchiveContent({
     setSelectedCategory('');
     setDateFrom('');
     setDateTo('');
+    setSearchQuery('');
   };
 
   return (
@@ -230,10 +239,12 @@ export default function ArchiveContent({
               selectedCategory={selectedCategory}
               dateFrom={dateFrom}
               dateTo={dateTo}
+              searchQuery={searchQuery}
               onModelChange={setSelectedModel}
               onCategoryChange={setSelectedCategory}
               onDateFromChange={setDateFrom}
               onDateToChange={setDateTo}
+              onSearchChange={setSearchQuery}
               onClearFilters={handleClearFilters}
             />
 
@@ -289,7 +300,7 @@ export default function ArchiveContent({
             {/* Empty State */}
             {!isLoading && !error && debates.length === 0 && (
               <div className="py-8">
-                {selectedModel || selectedCategory || dateFrom || dateTo ? (
+                {selectedModel || selectedCategory || dateFrom || dateTo || searchQuery ? (
                   <NoResults onClear={handleClearFilters} />
                 ) : (
                   <NoDebates />
