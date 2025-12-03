@@ -139,18 +139,31 @@ async def get_todays_schedule(
     """
     Get today's debate schedule.
 
-    Returns all debates scheduled for today (UTC), ordered by scheduled time.
+    Returns all debates scheduled for today (EST), ordered by scheduled time.
     Also includes upcoming time slots that haven't had debates yet.
+    The day resets at 12:01 AM EST.
     """
     # Import DEBATE_TIMES from scheduler to stay in sync
     from app.services.scheduler import DEBATE_TIMES
+    from zoneinfo import ZoneInfo
 
-    # Get today's date boundaries in UTC
-    # Use timezone-naive datetimes since the DB column is TIMESTAMP WITHOUT TIME ZONE
-    now = datetime.now(timezone.utc)
-    today = now.date()
-    start_of_day = datetime.combine(today, datetime.min.time())
-    end_of_day = start_of_day + timedelta(days=1)
+    # Get today's date boundaries in EST, then convert to UTC for DB query
+    # This ensures the schedule resets at midnight EST
+    est = ZoneInfo("America/New_York")
+    now_utc = datetime.now(timezone.utc)
+    now_est = now_utc.astimezone(est)
+    today_est = now_est.date()
+
+    # Create start/end of day in EST, then convert to UTC
+    start_of_day_est = datetime.combine(today_est, datetime.min.time(), tzinfo=est)
+    end_of_day_est = start_of_day_est + timedelta(days=1)
+
+    # Convert to UTC for database query (DB stores timestamps in UTC)
+    start_of_day = start_of_day_est.astimezone(timezone.utc).replace(tzinfo=None)
+    end_of_day = end_of_day_est.astimezone(timezone.utc).replace(tzinfo=None)
+
+    # Current time in UTC (timezone-naive for comparison with DB)
+    now = now_utc.replace(tzinfo=None)
 
     query = (
         select(Debate)
@@ -236,22 +249,27 @@ async def get_todays_schedule(
         )
 
     # Build upcoming slots for times that haven't had debates yet
+    # DEBATE_TIMES are in UTC, so compare against current UTC time
     upcoming_slots = []
-    current_hour = now.hour
-    current_minute = now.minute
+    current_hour_utc = now.hour
+    current_minute_utc = now.minute
 
     for slot_index, (hour, minute) in enumerate(DEBATE_TIMES):
-        # Skip if we already have a debate at this hour
+        # Skip if we already have a debate at this hour (hour is in UTC)
         if hour in debate_hours:
             continue
 
-        # Create the scheduled time for today
-        slot_time = datetime.combine(today, datetime.min.time()).replace(
-            hour=hour, minute=minute
-        )
+        # Create the scheduled time in UTC (DEBATE_TIMES are UTC hours)
+        # Use start_of_day (which is midnight EST in UTC) as base
+        slot_time = start_of_day.replace(hour=hour, minute=minute)
+
+        # Handle slots that cross midnight UTC (e.g., 2:00 UTC for 9 PM EST)
+        # If the slot hour is less than the start_of_day hour, it's the next UTC day
+        if hour < start_of_day.hour:
+            slot_time = slot_time + timedelta(days=1)
 
         # Only include future slots (with a small buffer for slots about to start)
-        if hour > current_hour or (hour == current_hour and minute > current_minute - 5):
+        if hour > current_hour_utc or (hour == current_hour_utc and minute > current_minute_utc - 5):
             upcoming_slots.append(
                 UpcomingSlot(
                     scheduled_time=slot_time,
@@ -260,7 +278,7 @@ async def get_todays_schedule(
             )
 
     return DailyScheduleResponse(
-        date=today.isoformat(),
+        date=today_est.isoformat(),
         debates=schedule_items,
         upcoming_slots=upcoming_slots,
         total_scheduled=len(schedule_items) + len(upcoming_slots),
