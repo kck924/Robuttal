@@ -107,11 +107,18 @@ class DebateScheduler:
                 # Find debates stuck in judging status
                 cutoff_time = datetime.utcnow() - timedelta(minutes=STUCK_DEBATE_THRESHOLD_MINUTES)
 
+                # Use scheduled_at as fallback since started_at may not be set
                 result = await db.execute(
                     select(Debate)
                     .where(
                         Debate.status == DebateStatus.JUDGING,
-                        Debate.started_at < cutoff_time,
+                        or_(
+                            Debate.started_at < cutoff_time,
+                            and_(
+                                Debate.started_at.is_(None),
+                                Debate.scheduled_at < cutoff_time,
+                            ),
+                        ),
                     )
                 )
                 stuck_debates = list(result.scalars().all())
