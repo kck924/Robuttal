@@ -125,7 +125,7 @@ export default function VoteSection({
                 <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide mb-0.5 sm:mb-1">
                   Pro
                 </div>
-                <div className="font-medium text-gray-900 text-xs sm:text-base truncate">{debaterPro.name}</div>
+                <div className="font-medium text-gray-900 text-[11px] sm:text-base">{debaterPro.name}</div>
               </button>
               <button
                 onClick={() => handleVote(debaterCon.id)}
@@ -139,7 +139,7 @@ export default function VoteSection({
                 <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wide mb-0.5 sm:mb-1">
                   Con
                 </div>
-                <div className="font-medium text-gray-900 text-xs sm:text-base truncate">{debaterCon.name}</div>
+                <div className="font-medium text-gray-900 text-[11px] sm:text-base">{debaterCon.name}</div>
               </button>
             </div>
           </div>
