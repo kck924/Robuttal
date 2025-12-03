@@ -13,6 +13,9 @@ from app.providers.base import CompletionResult, ContentFilterError
 
 logger = logging.getLogger(__name__)
 
+# Maximum retries for empty responses
+MAX_EMPTY_RESPONSE_RETRIES = 2
+
 # Word limits by phase
 WORD_LIMITS = {
     DebatePhase.OPENING: 300,
@@ -361,6 +364,7 @@ class DebateOrchestrator:
             self.debate.auditor_id,
         } | self._excused_model_ids
 
+        empty_response_retries = 0
         while True:
             system_prompt = self._build_debater_prompt(phase, position, context)
             messages = self._build_messages_from_transcript(phase)
@@ -373,6 +377,26 @@ class DebateOrchestrator:
                 result = await self._call_model_with_usage(
                     current_model, system_prompt, messages, max_tokens
                 )
+
+                # Validate that we got actual content
+                if not result.content or not result.content.strip():
+                    empty_response_retries += 1
+                    if empty_response_retries <= MAX_EMPTY_RESPONSE_RETRIES:
+                        logger.warning(
+                            f"Empty response from {current_model.name} in {phase.value}, "
+                            f"retry {empty_response_retries}/{MAX_EMPTY_RESPONSE_RETRIES}"
+                        )
+                        continue  # Retry with same model
+                    else:
+                        logger.error(
+                            f"Model {current_model.name} returned empty content after "
+                            f"{MAX_EMPTY_RESPONSE_RETRIES} retries in {phase.value}"
+                        )
+                        raise RuntimeError(
+                            f"{current_model.name} returned empty response after "
+                            f"{MAX_EMPTY_RESPONSE_RETRIES} retries"
+                        )
+
                 break  # Success - exit retry loop
             except ContentFilterError as e:
                 logger.warning(
