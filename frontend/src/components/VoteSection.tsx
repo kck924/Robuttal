@@ -112,11 +112,11 @@ export default function VoteSection({
         {/* Vote Buttons */}
         {!hasVoted && isCompleted && (
           <div>
-            <div className="flex gap-2 sm:gap-4 mb-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-3">
               <button
                 onClick={() => handleVote(debaterPro.id)}
                 disabled={isVoting}
-                className={`flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-lg border-2 transition-all ${
+                className={`py-2 sm:py-3 px-2 sm:px-4 rounded-lg border-2 transition-all ${
                   isVoting
                     ? 'border-gray-200 bg-gray-50 cursor-wait'
                     : 'border-blue-200 hover:border-blue-400 hover:bg-blue-50'
@@ -130,7 +130,7 @@ export default function VoteSection({
               <button
                 onClick={() => handleVote(debaterCon.id)}
                 disabled={isVoting}
-                className={`flex-1 py-2 sm:py-3 px-2 sm:px-4 rounded-lg border-2 transition-all ${
+                className={`py-2 sm:py-3 px-2 sm:px-4 rounded-lg border-2 transition-all ${
                   isVoting
                     ? 'border-gray-200 bg-gray-50 cursor-wait'
                     : 'border-red-200 hover:border-red-400 hover:bg-red-50'
