@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DebateListItem, Model, getDebates } from '@/lib/api';
 import ArchiveFilters from './ArchiveFilters';
 import ArchiveRow from './ArchiveRow';
@@ -35,21 +35,24 @@ export default function ArchiveContent({
   const [dateTo, setDateTo] = useState('');
   const [retryCount, setRetryCount] = useState(0);
 
+  // Track if this is the first render with valid initial data
+  const isFirstRender = useRef(true);
+  const hasValidInitialData = useRef(initialDebates.length > 0);
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   // Single effect that handles all fetching
   useEffect(() => {
-    // Skip ONLY on first mount with page 1 and no filters
-    // We check if initialDebates matches what we'd fetch (page 1, no filters)
     const isFirstPageNoFilters = page === 1 && !selectedModel && !selectedCategory && !dateFrom && !dateTo;
 
-    // Only skip if this is the initial render AND we haven't retried
-    // After any navigation, we always fetch
-    if (isFirstPageNoFilters && retryCount === 0) {
-      // Check if we already have data that matches initial state
-      // This only happens on first mount
+    // Only skip on true first render with valid data and no retry requested
+    if (isFirstRender.current && isFirstPageNoFilters && hasValidInitialData.current && retryCount === 0) {
+      isFirstRender.current = false;
       return;
     }
+
+    // Mark that we've passed the first render
+    isFirstRender.current = false;
 
     let cancelled = false;
 
