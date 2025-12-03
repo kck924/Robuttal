@@ -386,6 +386,7 @@ def _debate_to_list_item(debate: Debate) -> DebateListItem:
         pro_elo_after=debate.pro_elo_after,
         con_elo_before=debate.con_elo_before,
         con_elo_after=debate.con_elo_after,
+        is_blinded=debate.is_blinded,
     )
 
 
@@ -530,6 +531,7 @@ async def _debate_to_detail(debate: Debate, db: AsyncSession) -> DebateDetail:
         has_substitutions=has_substitutions,
         content_filter_excuses=content_filter_excuses,
         judge_score_context=judge_score_context,
+        is_blinded=debate.is_blinded,
     )
 
 
