@@ -133,19 +133,25 @@ class RetryJudgingResponse(BaseModel):
     winner: str | None = None
 
 
+class RetryJudgingRequest(BaseModel):
+    new_judge_id: uuid.UUID | None = None  # Optional: reassign judge before retrying
+
+
 @router.post("/debates/{debate_id}/retry-judging", response_model=RetryJudgingResponse)
 async def retry_judging(
     debate_id: uuid.UUID,
+    request: RetryJudgingRequest | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> RetryJudgingResponse:
     """
     Retry judging for a debate stuck in 'judging' status.
 
     This will:
-    1. Run the judge phase
-    2. Run the audit phase
-    3. Update Elo ratings
-    4. Mark debate as completed
+    1. Optionally reassign the judge (if new_judge_id is provided)
+    2. Run the judge phase
+    3. Run the audit phase
+    4. Update Elo ratings
+    5. Mark debate as completed
     """
     # Get the debate
     result = await db.execute(select(Debate).where(Debate.id == debate_id))
@@ -159,6 +165,20 @@ async def retry_judging(
             status_code=400,
             detail=f"Debate is not in judging status (current: {debate.status.value})",
         )
+
+    # Optionally reassign the judge
+    if request and request.new_judge_id:
+        new_judge = await db.get(Model, request.new_judge_id)
+        if new_judge is None:
+            raise HTTPException(status_code=404, detail="New judge model not found")
+        # Make sure new judge is not a debater in this debate
+        if request.new_judge_id in [debate.debater_pro_id, debate.debater_con_id]:
+            raise HTTPException(
+                status_code=400,
+                detail="Judge cannot be the same as a debater in this debate",
+            )
+        debate.judge_id = request.new_judge_id
+        await db.commit()
 
     try:
         # Run judge and audit
