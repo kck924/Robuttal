@@ -157,6 +157,11 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
 
         await db.flush()
 
+        # Store model names before any commits (SQLAlchemy expires objects after commit)
+        debate_id_str = str(debate.id)
+        judge_name = judge.name
+        auditor_name = auditor.name
+
         try:
             # 1. Run debate (opening, rebuttal, cross-exam, closing)
             orchestrator = DebateOrchestrator(db, debate.id)
@@ -173,18 +178,18 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
             # Flush to persist transcript entries, then commit and start fresh session
             # This ensures the judge service sees all the entries
             await db.commit()
-            logger.info(f"Debate {debate.id} completed debate phase, ready for judgment")
+            logger.info(f"Debate {debate_id_str} completed debate phase, ready for judgment")
 
             # 2. Judge the debate
-            logger.info(f"Starting judgment for debate {debate.id} with judge {judge.name}")
+            logger.info(f"Starting judgment for debate {debate_id_str} with judge {judge_name}")
             judge_service = JudgeService(db)
             await judge_service.judge_debate(debate.id)
-            logger.info(f"Judgment completed for debate {debate.id}")
+            logger.info(f"Judgment completed for debate {debate_id_str}")
 
             # 3. Audit the judge
-            logger.info(f"Starting audit for debate {debate.id} with auditor {auditor.name}")
+            logger.info(f"Starting audit for debate {debate_id_str} with auditor {auditor_name}")
             await judge_service.audit_judge(debate.id)
-            logger.info(f"Audit completed for debate {debate.id}")
+            logger.info(f"Audit completed for debate {debate_id_str}")
 
             # Merge any content filter excuses from judge service
             if judge_service.content_filter_excuses:
