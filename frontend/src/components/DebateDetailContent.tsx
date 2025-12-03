@@ -1185,10 +1185,42 @@ export default function DebateDetailContent({
                       <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs sm:text-sm font-bold">
                         {phaseInfo.icon}
                       </div>
-                      <div>
-                        <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-                          {phaseInfo.title}
-                        </h3>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm sm:text-base font-semibold text-gray-900">
+                            {phaseInfo.title}
+                          </h3>
+                          {/* Blinded/Unblinded tag for judgment and audit phases */}
+                          {(phase === 'judgment' || phase === 'audit') && (
+                            <div className="relative group">
+                              <span
+                                className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-medium cursor-help flex items-center gap-1 ${
+                                  debate.is_blinded
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {debate.is_blinded ? 'Blinded' : 'Unblinded'}
+                                <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </span>
+                              {/* Tooltip */}
+                              <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                <div className="font-semibold mb-1">
+                                  {debate.is_blinded ? 'Blinded Evaluation' : 'Unblinded Evaluation'}
+                                </div>
+                                <p className="text-gray-300 leading-relaxed">
+                                  {debate.is_blinded
+                                    ? 'The judge evaluated this debate without knowing which AI models were debating. Models were identified only as "Debater A" and "Debater B" to prevent potential bias.'
+                                    : 'The judge knew which AI models were debating (PRO and CON positions). This allows us to study whether model identity influences judging.'
+                                  }
+                                </p>
+                                <div className="absolute bottom-0 right-4 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <p className="text-xs sm:text-sm text-gray-500 mt-0.5 hidden sm:block">
                           {phaseInfo.description}
                         </p>
@@ -1276,89 +1308,6 @@ export default function DebateDetailContent({
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Judge Info */}
-      <div className="card mb-6 sm:mb-8">
-        <div className="card-header">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Judging</h2>
-            <div className="relative group">
-              <span
-                className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-medium cursor-help flex items-center gap-1 ${
-                  debate.is_blinded
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {debate.is_blinded ? 'Blinded' : 'Unblinded'}
-                <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
-              {/* Tooltip */}
-              <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                <div className="font-semibold mb-1">
-                  {debate.is_blinded ? 'Blinded Evaluation' : 'Unblinded Evaluation'}
-                </div>
-                <p className="text-gray-300 leading-relaxed">
-                  {debate.is_blinded
-                    ? 'The judge evaluated this debate without knowing which AI models were debating. Models were identified only as "Debater A" and "Debater B" to prevent potential bias.'
-                    : 'The judge knew which AI models were debating (PRO and CON positions). This allows us to study whether model identity influences judging.'
-                  }
-                </p>
-                <div className="absolute bottom-0 right-4 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
-              </div>
-            </div>
-          </div>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Judged by {debate.judge.name}
-          </p>
-        </div>
-        <div className="card-body">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <div className="text-xs sm:text-sm text-gray-500 mb-1">Judge</div>
-              <Link href={`/models/${generateSlug(debate.judge.name)}`} className="hover:text-primary-600">
-                <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{debate.judge.name}</div>
-              </Link>
-              <div className={`text-[10px] sm:text-xs ${getProviderColor(debate.judge.provider)}`}>
-                {debate.judge.provider}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs sm:text-sm text-gray-500 mb-1">Meta-Auditor</div>
-              <Link href={`/models/${generateSlug(debate.auditor.name)}`} className="hover:text-primary-600">
-                <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{debate.auditor.name}</div>
-              </Link>
-              <div className={`text-[10px] sm:text-xs ${getProviderColor(debate.auditor.provider)}`}>
-                {debate.auditor.provider}
-              </div>
-            </div>
-          </div>
-          {debate.judge_score !== null && (
-            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm text-gray-500">Judge Performance</span>
-                <span className="text-base sm:text-lg font-bold font-mono text-gray-900">
-                  {debate.judge_score.toFixed(1)}/10
-                </span>
-              </div>
-              <div className="mt-2 h-1.5 sm:h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    debate.judge_score >= 8
-                      ? 'bg-green-500'
-                      : debate.judge_score >= 6
-                      ? 'bg-yellow-500'
-                      : 'bg-red-500'
-                  }`}
-                  style={{ width: `${(debate.judge_score / 10) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
