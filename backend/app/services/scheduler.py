@@ -20,20 +20,17 @@ from app.services.elo import update_elos_for_debate
 logger = logging.getLogger(__name__)
 
 # Debate schedule times (UTC)
-# TEMPORARY: 10 debates every 10 minutes for testing (Dec 2-3, 2025)
+# TEMPORARY: 7 debates every 5 minutes for testing (Dec 3, 2025)
 # Revert to original schedule after testing:
 # DEBATE_TIMES = [(6, 0), (10, 0), (14, 0), (18, 0), (22, 0)]
 DEBATE_TIMES = [
-    (0, 50),   # 7:50 PM EST
-    (1, 0),    # 8:00 PM EST
-    (1, 10),   # 8:10 PM EST
-    (1, 20),   # 8:20 PM EST
-    (1, 30),   # 8:30 PM EST
-    (1, 40),   # 8:40 PM EST
-    (1, 50),   # 8:50 PM EST
-    (2, 0),    # 9:00 PM EST
-    (2, 10),   # 9:10 PM EST
-    (2, 20),   # 9:20 PM EST
+    (2, 54),   # 9:54 PM EST
+    (2, 59),   # 9:59 PM EST
+    (3, 4),    # 10:04 PM EST
+    (3, 9),    # 10:09 PM EST
+    (3, 14),   # 10:14 PM EST
+    (3, 19),   # 10:19 PM EST
+    (3, 24),   # 10:24 PM EST
 ]
 
 # Minimum votes for user-submitted topics
