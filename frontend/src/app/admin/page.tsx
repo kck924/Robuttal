@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Topic } from '@/lib/api';
+import Link from 'next/link';
+import { Topic, DebateListItem, getDebates } from '@/lib/api';
 
 const ADMIN_EMAIL = 'kevinklein333@gmail.com'; // Your admin email
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
@@ -10,6 +11,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 interface PendingTopicsResponse {
   topics: Topic[];
   total: number;
+}
+
+interface DeleteDebateResponse {
+  success: boolean;
+  message: string;
+  debate_id: string;
 }
 
 interface ModelCostStats {
@@ -64,10 +71,14 @@ export default function AdminPage() {
   const { data: session, status } = useSession();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [costStats, setCostStats] = useState<CostStatsResponse | null>(null);
+  const [debates, setDebates] = useState<DebateListItem[]>([]);
+  const [debatesTotal, setDebatesTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [costLoading, setCostLoading] = useState(true);
+  const [debatesLoading, setDebatesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [costDays, setCostDays] = useState(30);
 
   const isAdmin = session?.user?.email === ADMIN_EMAIL;
@@ -76,9 +87,11 @@ export default function AdminPage() {
     if (status === 'authenticated' && isAdmin) {
       fetchPendingTopics();
       fetchCostStats();
+      fetchDebates();
     } else {
       setLoading(false);
       setCostLoading(false);
+      setDebatesLoading(false);
     }
   }, [status, isAdmin]);
 
@@ -112,6 +125,45 @@ export default function AdminPage() {
       console.error('Cost stats error:', err);
     } finally {
       setCostLoading(false);
+    }
+  }
+
+  async function fetchDebates() {
+    setDebatesLoading(true);
+    try {
+      const response = await getDebates({ limit: 20 });
+      setDebates(response.debates);
+      setDebatesTotal(response.total);
+    } catch (err) {
+      console.error('Debates fetch error:', err);
+    } finally {
+      setDebatesLoading(false);
+    }
+  }
+
+  async function handleDeleteDebate(debateId: string) {
+    setActionLoading(debateId);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/debates/${debateId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to delete debate');
+      }
+
+      const result: DeleteDebateResponse = await res.json();
+
+      // Remove from list
+      setDebates((prev) => prev.filter((d) => d.id !== debateId));
+      setDebatesTotal((prev) => prev - 1);
+      setDeleteConfirm(null);
+      alert(result.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete debate');
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -399,6 +451,132 @@ export default function AdminPage() {
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Debate Management Section */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Debate Management</h2>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="text-3xl font-bold text-primary-600">{debatesTotal}</div>
+              <div className="text-sm text-gray-500">Total Debates</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Debates */}
+        <div className="card">
+          <div className="card-header flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Recent Debates</h3>
+            <button
+              onClick={fetchDebates}
+              disabled={debatesLoading}
+              className="text-sm text-primary-600 hover:text-primary-700 disabled:opacity-50"
+            >
+              {debatesLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {debatesLoading ? (
+            <div className="card-body flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+            </div>
+          ) : debates.length === 0 ? (
+            <div className="card-body text-center py-12 text-gray-500">
+              No debates found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Score</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {debates.map((debate) => (
+                    <tr key={debate.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {new Date(debate.completed_at || debate.scheduled_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                          {debate.topic.title}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {debate.debater_pro.name} vs {debate.debater_con.name}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                            debate.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : debate.status === 'in_progress'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {debate.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        {debate.pro_score !== null && debate.con_score !== null ? (
+                          <span className="font-mono">
+                            {debate.pro_score} - {debate.con_score}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/debates/${debate.id}`}
+                            className="text-sm text-primary-600 hover:text-primary-700"
+                          >
+                            View
+                          </Link>
+                          {deleteConfirm === debate.id ? (
+                            <>
+                              <button
+                                onClick={() => handleDeleteDebate(debate.id)}
+                                disabled={actionLoading === debate.id}
+                                className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                              >
+                                {actionLoading === debate.id ? '...' : 'Confirm'}
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="text-sm text-gray-500 hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirm(debate.id)}
+                              className="text-sm text-red-600 hover:text-red-700"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
