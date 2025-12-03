@@ -46,6 +46,9 @@ MATCHUP_COOLDOWN_DAYS = 7
 # Maximum attempts to restart debate due to content filter
 MAX_CONTENT_FILTER_RESTARTS = 3
 
+# How long a debate can be stuck in "judging" before auto-retry (minutes)
+STUCK_DEBATE_THRESHOLD_MINUTES = 15
+
 
 class DebateScheduler:
     """Scheduler for running automated debates."""
@@ -65,6 +68,15 @@ class DebateScheduler:
             )
             logger.info(f"Scheduled debate at {hour:02d}:{minute:02d} UTC")
 
+        # Add watchdog job to auto-complete stuck debates every 10 minutes
+        self.scheduler.add_job(
+            self._cleanup_stuck_debates,
+            CronTrigger(minute="*/10", timezone="UTC"),
+            id="cleanup_stuck_debates",
+            replace_existing=True,
+        )
+        logger.info("Scheduled stuck debate cleanup every 10 minutes")
+
         self.scheduler.start()
         logger.info("Debate scheduler started")
 
@@ -82,6 +94,79 @@ class DebateScheduler:
                 await db.commit()
         except Exception as e:
             logger.error(f"Scheduled debate failed: {e}", exc_info=True)
+
+    async def _cleanup_stuck_debates(self):
+        """
+        Watchdog job that finds and completes stuck debates.
+
+        Looks for debates that have been in 'judging' or 'in_progress' status
+        for longer than STUCK_DEBATE_THRESHOLD_MINUTES and attempts to complete them.
+        """
+        logger.info("Running stuck debate cleanup check")
+        try:
+            async with async_session_maker() as db:
+                # Find debates stuck in judging status
+                cutoff_time = datetime.utcnow() - timedelta(minutes=STUCK_DEBATE_THRESHOLD_MINUTES)
+
+                result = await db.execute(
+                    select(Debate)
+                    .where(
+                        Debate.status == DebateStatus.JUDGING,
+                        Debate.started_at < cutoff_time,
+                    )
+                )
+                stuck_debates = list(result.scalars().all())
+
+                if not stuck_debates:
+                    logger.debug("No stuck debates found")
+                    return
+
+                logger.warning(f"Found {len(stuck_debates)} stuck debate(s), attempting recovery")
+
+                for debate in stuck_debates:
+                    debate_id = str(debate.id)
+                    try:
+                        logger.info(f"Attempting to recover stuck debate {debate_id}")
+
+                        # Load related models for logging
+                        judge = await db.get(Model, debate.judge_id)
+                        auditor = await db.get(Model, debate.auditor_id)
+                        judge_name = judge.name if judge else "Unknown"
+                        auditor_name = auditor.name if auditor else "Unknown"
+
+                        # Run judgment
+                        logger.info(f"Running judgment for stuck debate {debate_id} with judge {judge_name}")
+                        judge_service = JudgeService(db)
+                        await judge_service.judge_debate(debate.id)
+                        await db.commit()
+                        logger.info(f"Judgment completed for stuck debate {debate_id}")
+
+                        # Run audit
+                        logger.info(f"Running audit for stuck debate {debate_id} with auditor {auditor_name}")
+                        await judge_service.audit_judge(debate.id)
+                        await db.commit()
+                        logger.info(f"Audit completed for stuck debate {debate_id}")
+
+                        # Update Elo ratings
+                        await update_elos_for_debate(db, debate.id)
+
+                        # Mark topic as debated
+                        topic = await db.get(Topic, debate.topic_id)
+                        if topic and topic.status != TopicStatus.DEBATED:
+                            topic.status = TopicStatus.DEBATED
+                            topic.debated_at = datetime.utcnow()
+
+                        await db.commit()
+                        logger.info(f"Successfully recovered stuck debate {debate_id}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to recover stuck debate {debate_id}: {e}", exc_info=True)
+                        # Don't let one failure stop us from trying others
+                        await db.rollback()
+                        continue
+
+        except Exception as e:
+            logger.error(f"Stuck debate cleanup failed: {e}", exc_info=True)
 
 
 async def run_single_debate(db: AsyncSession) -> Debate | None:
