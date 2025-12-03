@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { DebateListItem, Model, getDebates } from '@/lib/api';
 import ArchiveFilters from './ArchiveFilters';
 import ArchiveRow from './ArchiveRow';
@@ -33,74 +33,83 @@ export default function ArchiveContent({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const fetchDebates = useCallback(async (pageNum: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await getDebates({
-        status: 'completed',
-        limit: PAGE_SIZE,
-        offset: (pageNum - 1) * PAGE_SIZE,
-        model_id: selectedModel || undefined,
-      });
-
-      // Client-side filtering for category and date (ideally these would be API params)
-      let filtered = response.debates;
-
-      if (selectedCategory) {
-        filtered = filtered.filter(
-          (d) => d.topic.category.toLowerCase() === selectedCategory.toLowerCase()
-        );
-      }
-
-      if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        filtered = filtered.filter((d) => {
-          const debateDate = new Date(d.completed_at || d.scheduled_at);
-          return debateDate >= fromDate;
-        });
-      }
-
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        filtered = filtered.filter((d) => {
-          const debateDate = new Date(d.completed_at || d.scheduled_at);
-          return debateDate <= toDate;
-        });
-      }
-
-      setDebates(filtered);
-      setTotal(response.total);
-    } catch (err) {
-      console.error('Failed to fetch debates:', err);
-      setError('Failed to load debates. Please try again.');
-      toast.error('Failed to load debates');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedModel, selectedCategory, dateFrom, dateTo, toast]);
-
-  // Fetch when page changes (not on initial render with page 1 and no filters)
+  // Single effect that handles all fetching
   useEffect(() => {
-    if (!hasInitialized) {
-      setHasInitialized(true);
+    // Skip initial fetch - we have server-rendered data for page 1 with no filters
+    const isInitialState = page === 1 && !selectedModel && !selectedCategory && !dateFrom && !dateTo && retryCount === 0;
+    if (isInitialState) {
       return;
     }
-    fetchDebates(page);
-  }, [page, fetchDebates, hasInitialized]);
 
-  // Reset to page 1 and refetch when filters change
-  useEffect(() => {
-    if (!hasInitialized) return;
-    setPage(1);
-    fetchDebates(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModel, selectedCategory, dateFrom, dateTo]);
+    let cancelled = false;
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await getDebates({
+          status: 'completed',
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+          model_id: selectedModel || undefined,
+        });
+
+        if (cancelled) return;
+
+        // Client-side filtering for category and date (ideally these would be API params)
+        let filtered = response.debates;
+
+        if (selectedCategory) {
+          filtered = filtered.filter(
+            (d) => d.topic.category.toLowerCase() === selectedCategory.toLowerCase()
+          );
+        }
+
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom);
+          filtered = filtered.filter((d) => {
+            const debateDate = new Date(d.completed_at || d.scheduled_at);
+            return debateDate >= fromDate;
+          });
+        }
+
+        if (dateTo) {
+          const toDate = new Date(dateTo);
+          toDate.setHours(23, 59, 59, 999);
+          filtered = filtered.filter((d) => {
+            const debateDate = new Date(d.completed_at || d.scheduled_at);
+            return debateDate <= toDate;
+          });
+        }
+
+        setDebates(filtered);
+        setTotal(response.total);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to fetch debates:', err);
+        setError('Failed to load debates. Please try again.');
+        toast.error('Failed to load debates');
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, retryCount, toast]);
+
+  const handleRetry = () => {
+    setRetryCount((c) => c + 1);
+  };
 
   const handleClearFilters = () => {
     setSelectedModel('');
@@ -180,7 +189,7 @@ export default function ArchiveContent({
                 <ApiError
                   title="Failed to load debates"
                   message={error}
-                  onRetry={() => fetchDebates(page)}
+                  onRetry={handleRetry}
                 />
               </div>
             )}
