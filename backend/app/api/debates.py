@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import Debate, DebatePosition, DebateStatus, Model
+from app.models import Debate, DebatePosition, DebateStatus, Model, Topic
 from app.schemas.debate import (
     ContentFilterExcuseInfo,
     ContentFilterExcuseResponse,
@@ -34,6 +34,7 @@ async def list_debates(
     offset: int = Query(default=0, ge=0),
     status: DebateStatus | None = Query(default=None),
     model_id: UUID | None = Query(default=None),
+    search: str | None = Query(default=None, min_length=2, max_length=200),
     db: AsyncSession = Depends(get_db),
 ) -> DebateListResponse:
     """
@@ -43,6 +44,7 @@ async def list_debates(
     - **offset**: Number of debates to skip
     - **status**: Filter by debate status
     - **model_id**: Filter by model (as debater, judge, or winner)
+    - **search**: Search by topic title (case-insensitive, min 2 chars)
     """
     # Build base query
     query = select(Debate).options(
@@ -62,6 +64,13 @@ async def list_debates(
             (Debate.debater_pro_id == model_id)
             | (Debate.debater_con_id == model_id)
             | (Debate.judge_id == model_id)
+        )
+
+    # Apply search filter on topic title
+    if search is not None:
+        search_pattern = f"%{search}%"
+        query = query.join(Debate.topic).where(
+            Topic.title.ilike(search_pattern)
         )
 
     # Get total count

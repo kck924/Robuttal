@@ -9,6 +9,7 @@ interface ArchiveFiltersProps {
   dateFrom: string;
   dateTo: string;
   searchQuery: string;
+  isSearching?: boolean;
   onModelChange: (modelId: string) => void;
   onCategoryChange: (category: string) => void;
   onDateFromChange: (date: string) => void;
@@ -34,6 +35,7 @@ export default function ArchiveFilters({
   dateFrom,
   dateTo,
   searchQuery,
+  isSearching = false,
   onModelChange,
   onCategoryChange,
   onDateFromChange,
@@ -65,14 +67,34 @@ export default function ArchiveFilters({
           >
             Search
           </label>
-          <input
-            type="text"
-            id="search-filter"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search topics..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              id="search-filter"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search topics..."
+              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </div>
+            )}
+            {!isSearching && searchQuery && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Model Filter */}

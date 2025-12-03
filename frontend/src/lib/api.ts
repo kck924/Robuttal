@@ -384,12 +384,14 @@ export async function getDebates(params?: {
   offset?: number;
   status?: string;
   model_id?: string;
+  search?: string;
 }): Promise<DebateListResponse> {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
   if (params?.status) searchParams.set('status', params.status);
   if (params?.model_id) searchParams.set('model_id', params.model_id);
+  if (params?.search) searchParams.set('search', params.search);
 
   const query = searchParams.toString();
   return fetchAPI(`/api/debates${query ? `?${query}` : ''}`);

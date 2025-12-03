@@ -38,6 +38,8 @@ export default function ArchiveContent({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // For debounced input
+  const [isSearching, setIsSearching] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   // Track if this is the first render with valid initial data
@@ -54,7 +56,7 @@ export default function ArchiveContent({
     return `${pageNum}-${selectedModel}-${selectedCategory}-${dateFrom}-${dateTo}-${searchQuery}`;
   }, [selectedModel, selectedCategory, dateFrom, dateTo, searchQuery]);
 
-  // Apply client-side filters
+  // Apply client-side filters (only category and date, search is now server-side)
   const applyFilters = useCallback((debates: DebateListItem[]) => {
     let filtered = debates;
 
@@ -81,15 +83,22 @@ export default function ArchiveContent({
       });
     }
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((d) =>
-        d.topic.title.toLowerCase().includes(query)
-      );
+    return filtered;
+  }, [selectedCategory, dateFrom, dateTo]);
+
+  // Debounce search input
+  useEffect(() => {
+    // Don't search with less than 2 chars (except empty to clear)
+    if (searchInput.length > 0 && searchInput.length < 2) {
+      return;
     }
 
-    return filtered;
-  }, [selectedCategory, dateFrom, dateTo, searchQuery]);
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+      setPage(1); // Reset to page 1 when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Prefetch a specific page
   const prefetchPage = useCallback(async (pageNum: number) => {
@@ -107,6 +116,7 @@ export default function ArchiveContent({
         limit: PAGE_SIZE,
         offset: (pageNum - 1) * PAGE_SIZE,
         model_id: selectedModel || undefined,
+        search: searchQuery || undefined,
       });
 
       const filtered = applyFilters(response.debates);
@@ -119,7 +129,7 @@ export default function ArchiveContent({
     } catch {
       // Silently fail prefetch - it's just an optimization
     }
-  }, [getCacheKey, selectedModel, applyFilters]);
+  }, [getCacheKey, selectedModel, searchQuery, applyFilters]);
 
   // Single effect that handles all fetching
   useEffect(() => {
@@ -156,6 +166,7 @@ export default function ArchiveContent({
       }
 
       setIsLoading(true);
+      setIsSearching(!!searchQuery);
       setError(null);
       try {
         const response = await getDebates({
@@ -163,6 +174,7 @@ export default function ArchiveContent({
           limit: PAGE_SIZE,
           offset: (page - 1) * PAGE_SIZE,
           model_id: selectedModel || undefined,
+          search: searchQuery || undefined,
         });
 
         if (cancelled) return;
@@ -191,6 +203,7 @@ export default function ArchiveContent({
       } finally {
         if (!cancelled) {
           setIsLoading(false);
+          setIsSearching(false);
         }
       }
     };
@@ -216,6 +229,7 @@ export default function ArchiveContent({
     setSelectedCategory('');
     setDateFrom('');
     setDateTo('');
+    setSearchInput('');
     setSearchQuery('');
   };
 
@@ -239,12 +253,13 @@ export default function ArchiveContent({
               selectedCategory={selectedCategory}
               dateFrom={dateFrom}
               dateTo={dateTo}
-              searchQuery={searchQuery}
+              searchQuery={searchInput}
+              isSearching={isSearching}
               onModelChange={setSelectedModel}
               onCategoryChange={setSelectedCategory}
               onDateFromChange={setDateFrom}
               onDateToChange={setDateTo}
-              onSearchChange={setSearchQuery}
+              onSearchChange={setSearchInput}
               onClearFilters={handleClearFilters}
             />
 
@@ -300,7 +315,7 @@ export default function ArchiveContent({
             {/* Empty State */}
             {!isLoading && !error && debates.length === 0 && (
               <div className="py-8">
-                {selectedModel || selectedCategory || dateFrom || dateTo || searchQuery ? (
+                {selectedModel || selectedCategory || dateFrom || dateTo || searchInput ? (
                   <NoResults onClear={handleClearFilters} />
                 ) : (
                   <NoDebates />
