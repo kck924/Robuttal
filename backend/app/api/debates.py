@@ -252,8 +252,6 @@ async def get_todays_schedule(
     # Build upcoming slots for times that haven't had debates yet
     # DEBATE_TIMES are in UTC, so compare against current UTC time
     upcoming_slots = []
-    current_hour_utc = now.hour
-    current_minute_utc = now.minute
 
     for slot_index, (hour, minute) in enumerate(DEBATE_TIMES):
         # Skip if we already have a debate at this hour (hour is in UTC)
@@ -270,7 +268,9 @@ async def get_todays_schedule(
             slot_time = slot_time + timedelta(days=1)
 
         # Only include future slots (with a small buffer for slots about to start)
-        if hour > current_hour_utc or (hour == current_hour_utc and minute > current_minute_utc - 5):
+        # Compare actual datetime objects, not just hours, to handle day boundary correctly
+        buffer_time = now - timedelta(minutes=5)
+        if slot_time > buffer_time:
             upcoming_slots.append(
                 UpcomingSlot(
                     scheduled_time=slot_time,
