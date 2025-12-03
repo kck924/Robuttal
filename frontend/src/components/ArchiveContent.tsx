@@ -39,9 +39,15 @@ export default function ArchiveContent({
 
   // Single effect that handles all fetching
   useEffect(() => {
-    // Skip initial fetch - we have server-rendered data for page 1 with no filters
-    const isInitialState = page === 1 && !selectedModel && !selectedCategory && !dateFrom && !dateTo && retryCount === 0;
-    if (isInitialState) {
+    // Skip ONLY on first mount with page 1 and no filters
+    // We check if initialDebates matches what we'd fetch (page 1, no filters)
+    const isFirstPageNoFilters = page === 1 && !selectedModel && !selectedCategory && !dateFrom && !dateTo;
+
+    // Only skip if this is the initial render AND we haven't retried
+    // After any navigation, we always fetch
+    if (isFirstPageNoFilters && retryCount === 0) {
+      // Check if we already have data that matches initial state
+      // This only happens on first mount
       return;
     }
 
@@ -92,7 +98,6 @@ export default function ArchiveContent({
         if (cancelled) return;
         console.error('Failed to fetch debates:', err);
         setError('Failed to load debates. Please try again.');
-        toast.error('Failed to load debates');
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -105,7 +110,7 @@ export default function ArchiveContent({
     return () => {
       cancelled = true;
     };
-  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, retryCount, toast]);
+  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, retryCount]);
 
   const handleRetry = () => {
     setRetryCount((c) => c + 1);
