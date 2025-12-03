@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 # Debate schedule times (UTC)
 # EST is UTC-5, so add 5 hours to EST times to get UTC
-# 6 AM EST = 11:00 UTC, 10 AM EST = 15:00 UTC, etc.
 DEBATE_TIMES = [
     (11, 0),   # 6:00 AM EST
-    (15, 0),   # 10:00 AM EST
-    (19, 0),   # 2:00 PM EST
+    (14, 0),   # 9:00 AM EST
+    (17, 0),   # 12:00 PM EST
+    (20, 0),   # 3:00 PM EST
     (23, 0),   # 6:00 PM EST
-    (3, 0),    # 10:00 PM EST (next day UTC)
+    (2, 0),    # 9:00 PM EST (next day UTC)
 ]
 
 # Minimum votes for user-submitted topics
