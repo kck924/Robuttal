@@ -2,43 +2,57 @@
 
 import { useState, useEffect } from 'react';
 
-// Debate times in UTC (6AM, 10AM, 2PM, 6PM, 10PM)
-const DEBATE_HOURS_UTC = [6, 10, 14, 18, 22];
+// Debate times in UTC - must match backend scheduler.py DEBATE_TIMES
+// These are: 6 AM, 9 AM, 12 PM, 3 PM, 6 PM, 9 PM EST
+const DEBATE_TIMES_UTC: [number, number][] = [
+  [2, 0],   // 9 PM EST (previous day)
+  [11, 0],  // 6 AM EST
+  [14, 0],  // 9 AM EST
+  [17, 0],  // 12 PM EST
+  [20, 0],  // 3 PM EST
+  [23, 0],  // 6 PM EST
+];
+
+const TOTAL_DAILY_DEBATES = 6;
 
 function getNextDebateTime(): Date {
   const now = new Date();
   const currentHourUTC = now.getUTCHours();
-  const currentMinutesUTC = now.getUTCMinutes();
+  const currentMinuteUTC = now.getUTCMinutes();
+  const currentTimeMinutes = currentHourUTC * 60 + currentMinuteUTC;
 
-  // Find the next debate hour
-  let nextHour = DEBATE_HOURS_UTC.find((h) => h > currentHourUTC);
-
-  if (nextHour === undefined) {
-    // All debates for today are done, next is tomorrow at 6 AM UTC
-    nextHour = DEBATE_HOURS_UTC[0];
-    const tomorrow = new Date(now);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    tomorrow.setUTCHours(nextHour, 0, 0, 0);
-    return tomorrow;
-  }
-
-  // Check if we're past the current hour (same hour, past minutes)
-  if (nextHour === currentHourUTC && currentMinutesUTC > 0) {
-    const nextIndex = DEBATE_HOURS_UTC.indexOf(nextHour) + 1;
-    if (nextIndex < DEBATE_HOURS_UTC.length) {
-      nextHour = DEBATE_HOURS_UTC[nextIndex];
-    } else {
-      nextHour = DEBATE_HOURS_UTC[0];
-      const tomorrow = new Date(now);
-      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-      tomorrow.setUTCHours(nextHour, 0, 0, 0);
-      return tomorrow;
+  // Find the next debate time
+  for (const [hour, minute] of DEBATE_TIMES_UTC) {
+    const debateTimeMinutes = hour * 60 + minute;
+    if (debateTimeMinutes > currentTimeMinutes) {
+      const next = new Date(now);
+      next.setUTCHours(hour, minute, 0, 0);
+      return next;
     }
   }
 
-  const next = new Date(now);
-  next.setUTCHours(nextHour, 0, 0, 0);
-  return next;
+  // All debates for today are done, next is tomorrow at first debate time
+  const [nextHour, nextMinute] = DEBATE_TIMES_UTC[0];
+  const tomorrow = new Date(now);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  tomorrow.setUTCHours(nextHour, nextMinute, 0, 0);
+  return tomorrow;
+}
+
+function getDebatesCompletedToday(): number {
+  const now = new Date();
+  const currentHourUTC = now.getUTCHours();
+  const currentMinuteUTC = now.getUTCMinutes();
+  const currentTimeMinutes = currentHourUTC * 60 + currentMinuteUTC;
+
+  let completed = 0;
+  for (const [hour, minute] of DEBATE_TIMES_UTC) {
+    const debateTimeMinutes = hour * 60 + minute;
+    if (debateTimeMinutes <= currentTimeMinutes) {
+      completed++;
+    }
+  }
+  return completed;
 }
 
 function formatTimeRemaining(ms: number): { hours: string; minutes: string; seconds: string } {
@@ -54,17 +68,15 @@ function formatTimeRemaining(ms: number): { hours: string; minutes: string; seco
   };
 }
 
-interface NextDebateTimerProps {
-  debatesRemaining?: number;
-}
-
-export default function NextDebateTimer({ debatesRemaining = 5 }: NextDebateTimerProps) {
+// Hook for timer logic - shared between components
+export function useNextDebateTimer() {
   const [timeRemaining, setTimeRemaining] = useState<{
     hours: string;
     minutes: string;
     seconds: string;
   } | null>(null);
   const [nextDebateTime, setNextDebateTime] = useState<Date | null>(null);
+  const [debatesCompleted, setDebatesCompleted] = useState(0);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -72,6 +84,7 @@ export default function NextDebateTimer({ debatesRemaining = 5 }: NextDebateTime
       setNextDebateTime(next);
       const remaining = next.getTime() - Date.now();
       setTimeRemaining(formatTimeRemaining(remaining));
+      setDebatesCompleted(getDebatesCompletedToday());
     };
 
     // Initial update
@@ -82,6 +95,43 @@ export default function NextDebateTimer({ debatesRemaining = 5 }: NextDebateTime
 
     return () => clearInterval(interval);
   }, []);
+
+  const debatesLeft = TOTAL_DAILY_DEBATES - debatesCompleted;
+
+  return { timeRemaining, nextDebateTime, debatesCompleted, debatesLeft, totalDebates: TOTAL_DAILY_DEBATES };
+}
+
+// Compact timer for header
+export function CompactDebateTimer() {
+  const { timeRemaining, nextDebateTime } = useNextDebateTimer();
+
+  if (!timeRemaining || !nextDebateTime) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+        <span className="animate-pulse">--:--:--</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <svg className="w-3.5 h-3.5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span className="text-gray-500">Next:</span>
+      <span className="font-mono font-semibold text-gray-700">
+        {timeRemaining.hours}:{timeRemaining.minutes}:{timeRemaining.seconds}
+      </span>
+    </div>
+  );
+}
+
+interface NextDebateTimerProps {
+  debatesRemaining?: number;
+}
+
+export default function NextDebateTimer({ debatesRemaining }: NextDebateTimerProps) {
+  const { timeRemaining, nextDebateTime, debatesCompleted, debatesLeft, totalDebates } = useNextDebateTimer();
 
   if (!timeRemaining || !nextDebateTime) {
     return (
@@ -95,11 +145,6 @@ export default function NextDebateTimer({ debatesRemaining = 5 }: NextDebateTime
       </div>
     );
   }
-
-  // Calculate debates completed today
-  const now = new Date();
-  const debatesCompleted = DEBATE_HOURS_UTC.filter((h) => h <= now.getUTCHours()).length;
-  const debatesLeft = 5 - debatesCompleted;
 
   return (
     <div className="card bg-gradient-to-br from-primary-50 to-primary-100 border-primary-200">
@@ -141,7 +186,7 @@ export default function NextDebateTimer({ debatesRemaining = 5 }: NextDebateTime
 
         {/* Debates remaining */}
         <div className="flex items-center justify-center gap-1">
-          {[...Array(5)].map((_, i) => (
+          {[...Array(totalDebates)].map((_, i) => (
             <div
               key={i}
               className={`w-3 h-3 rounded-full ${
@@ -154,7 +199,7 @@ export default function NextDebateTimer({ debatesRemaining = 5 }: NextDebateTime
           ))}
         </div>
         <p className="text-xs text-gray-500 mt-1">
-          {debatesLeft} of 5 debates remaining today
+          {debatesLeft} of {totalDebates} debates remaining today
         </p>
       </div>
     </div>

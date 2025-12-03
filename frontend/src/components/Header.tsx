@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import UserMenu from './UserMenu';
+import { CompactDebateTimer } from './NextDebateTimer';
 import { trackNavClick, trackExternalLink } from '@/lib/analytics';
 
 const navigation = [
@@ -58,6 +59,10 @@ export default function Header() {
                 </Link>
               );
             })}
+            {/* Next Debate Timer */}
+            <div className="ml-4 pl-4 border-l border-gray-200">
+              <CompactDebateTimer />
+            </div>
           </nav>
 
           {/* Right side: Submit Topic + Support + User Menu + Mobile Menu Button */}
