@@ -326,6 +326,88 @@ class CostStatsResponse(BaseModel):
     period_end: str
 
 
+class DeleteDebateResponse(BaseModel):
+    """Response from deleting a debate."""
+
+    success: bool
+    message: str
+    debate_id: str
+
+
+@router.delete("/debates/{debate_id}", response_model=DeleteDebateResponse)
+async def delete_debate(
+    debate_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> DeleteDebateResponse:
+    """
+    Delete a debate and all its related data.
+
+    This will:
+    1. Delete all transcript entries for the debate
+    2. Delete all votes for the debate
+    3. Reset the topic status to 'approved' (so it can be debated again)
+    4. Delete the debate itself
+
+    WARNING: This is destructive and cannot be undone.
+    """
+    from app.models import Vote
+
+    # Get the debate
+    result = await db.execute(select(Debate).where(Debate.id == debate_id))
+    debate = result.scalar_one_or_none()
+
+    if debate is None:
+        raise HTTPException(status_code=404, detail="Debate not found")
+
+    topic_id = debate.topic_id
+
+    try:
+        # Delete transcript entries
+        await db.execute(
+            select(TranscriptEntry).where(TranscriptEntry.debate_id == debate_id)
+        )
+        transcript_result = await db.execute(
+            select(func.count(TranscriptEntry.id)).where(
+                TranscriptEntry.debate_id == debate_id
+            )
+        )
+        transcript_count = transcript_result.scalar() or 0
+
+        # Delete transcript entries
+        from sqlalchemy import delete
+
+        await db.execute(
+            delete(TranscriptEntry).where(TranscriptEntry.debate_id == debate_id)
+        )
+
+        # Delete votes for this debate
+        await db.execute(delete(Vote).where(Vote.debate_id == debate_id))
+
+        # Reset topic status so it can be debated again
+        topic_result = await db.execute(select(Topic).where(Topic.id == topic_id))
+        topic = topic_result.scalar_one_or_none()
+        if topic:
+            topic.status = TopicStatus.APPROVED
+            topic.debated_at = None
+
+        # Delete the debate
+        await db.delete(debate)
+        await db.commit()
+
+        return DeleteDebateResponse(
+            success=True,
+            message=f"Debate deleted successfully (removed {transcript_count} transcript entries)",
+            debate_id=str(debate_id),
+        )
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete debate: {str(e)}",
+        )
+
+
 @router.get("/cost-stats", response_model=CostStatsResponse)
 async def get_cost_statistics(
     days: int = Query(default=30, ge=1, le=365, description="Number of days to look back"),
