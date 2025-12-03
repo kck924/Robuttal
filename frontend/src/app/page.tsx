@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getLiveDebate, getDebates, getDebateVotes, getTodaysSchedule, getTopics, DailyScheduleResponse, Topic } from '@/lib/api';
 import ArenaContent from '@/components/ArenaContent';
 
-export const revalidate = 30; // Revalidate every 30 seconds
+export const revalidate = 10; // Revalidate every 10 seconds
 
 async function getArenaData() {
   try {

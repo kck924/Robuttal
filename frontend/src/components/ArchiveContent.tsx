@@ -18,7 +18,7 @@ const PAGE_SIZE = 10;
 
 // Simple cache for prefetched pages
 type PageCache = Map<string, { debates: DebateListItem[]; total: number; timestamp: number }>;
-const CACHE_TTL = 60000; // 1 minute
+const CACHE_TTL = 15000; // 15 seconds
 
 export default function ArchiveContent({
   initialDebates,

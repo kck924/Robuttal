@@ -102,7 +102,8 @@ async def get_live_debate(
     """
     Get the currently running debate, if any.
 
-    Returns the debate with status IN_PROGRESS, or null if no debate is live.
+    Returns the debate with status IN_PROGRESS or JUDGING, or null if no debate is live.
+    Includes JUDGING status to prevent content gaps during the judgment phase.
     """
     query = (
         select(Debate)
@@ -115,7 +116,7 @@ async def get_live_debate(
             selectinload(Debate.winner),
             selectinload(Debate.transcript_entries),
         )
-        .where(Debate.status == DebateStatus.IN_PROGRESS)
+        .where(Debate.status.in_([DebateStatus.IN_PROGRESS, DebateStatus.JUDGING]))
         .order_by(Debate.started_at.desc())
         .limit(1)
     )
