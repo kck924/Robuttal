@@ -33,17 +33,18 @@ export default function ArchiveContent({
   const [selectedCategory, setSelectedCategory] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const fetchDebates = useCallback(async () => {
+  const fetchDebates = useCallback(async (pageNum: number) => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await getDebates({
         status: 'completed',
         limit: PAGE_SIZE,
-        offset: (page - 1) * PAGE_SIZE,
+        offset: (pageNum - 1) * PAGE_SIZE,
         model_id: selectedModel || undefined,
       });
 
@@ -82,26 +83,23 @@ export default function ArchiveContent({
     } finally {
       setIsLoading(false);
     }
-  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, toast]);
+  }, [selectedModel, selectedCategory, dateFrom, dateTo, toast]);
 
-  // Refetch when filters or page change
+  // Fetch when page changes (not on initial render with page 1 and no filters)
   useEffect(() => {
-    // Skip initial fetch since we have initialDebates
-    if (
-      page === 1 &&
-      !selectedModel &&
-      !selectedCategory &&
-      !dateFrom &&
-      !dateTo
-    ) {
+    if (!hasInitialized) {
+      setHasInitialized(true);
       return;
     }
-    fetchDebates();
-  }, [fetchDebates, page, selectedModel, selectedCategory, dateFrom, dateTo]);
+    fetchDebates(page);
+  }, [page, fetchDebates, hasInitialized]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and refetch when filters change
   useEffect(() => {
+    if (!hasInitialized) return;
     setPage(1);
+    fetchDebates(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModel, selectedCategory, dateFrom, dateTo]);
 
   const handleClearFilters = () => {
@@ -182,7 +180,7 @@ export default function ArchiveContent({
                 <ApiError
                   title="Failed to load debates"
                   message={error}
-                  onRetry={fetchDebates}
+                  onRetry={() => fetchDebates(page)}
                 />
               </div>
             )}
