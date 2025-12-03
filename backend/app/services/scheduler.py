@@ -42,6 +42,9 @@ MAX_CONTENT_FILTER_RESTARTS = 3
 # How long a debate can be stuck in "judging" before auto-retry (minutes)
 STUCK_DEBATE_THRESHOLD_MINUTES = 15
 
+# Maximum recovery attempts per stuck debate in a single watchdog run
+MAX_WATCHDOG_RECOVERY_ATTEMPTS = 2
+
 
 class DebateScheduler:
     """Scheduler for running automated debates."""
@@ -94,6 +97,11 @@ class DebateScheduler:
 
         Looks for debates that have been in 'judging' or 'in_progress' status
         for longer than STUCK_DEBATE_THRESHOLD_MINUTES and attempts to complete them.
+
+        Key improvements:
+        - Detects if judgment is already complete (has scores) and skips to audit
+        - Retries with a different auditor if the first attempt times out
+        - Handles TimeoutError by switching to a replacement model
         """
         logger.info("Running stuck debate cleanup check")
         try:
@@ -125,48 +133,123 @@ class DebateScheduler:
 
                 for debate in stuck_debates:
                     debate_id = str(debate.id)
-                    try:
-                        logger.info(f"Attempting to recover stuck debate {debate_id}")
-
-                        # Load related models for logging
-                        judge = await db.get(Model, debate.judge_id)
-                        auditor = await db.get(Model, debate.auditor_id)
-                        judge_name = judge.name if judge else "Unknown"
-                        auditor_name = auditor.name if auditor else "Unknown"
-
-                        # Run judgment
-                        logger.info(f"Running judgment for stuck debate {debate_id} with judge {judge_name}")
-                        judge_service = JudgeService(db)
-                        await judge_service.judge_debate(debate.id)
-                        await db.commit()
-                        logger.info(f"Judgment completed for stuck debate {debate_id}")
-
-                        # Run audit
-                        logger.info(f"Running audit for stuck debate {debate_id} with auditor {auditor_name}")
-                        await judge_service.audit_judge(debate.id)
-                        await db.commit()
-                        logger.info(f"Audit completed for stuck debate {debate_id}")
-
-                        # Update Elo ratings
-                        await update_elos_for_debate(db, debate.id)
-
-                        # Mark topic as debated
-                        topic = await db.get(Topic, debate.topic_id)
-                        if topic and topic.status != TopicStatus.DEBATED:
-                            topic.status = TopicStatus.DEBATED
-                            topic.debated_at = datetime.utcnow()
-
-                        await db.commit()
-                        logger.info(f"Successfully recovered stuck debate {debate_id}")
-
-                    except Exception as e:
-                        logger.error(f"Failed to recover stuck debate {debate_id}: {e}", exc_info=True)
-                        # Don't let one failure stop us from trying others
-                        await db.rollback()
-                        continue
+                    await self._recover_stuck_debate(db, debate)
 
         except Exception as e:
             logger.error(f"Stuck debate cleanup failed: {e}", exc_info=True)
+
+    async def _recover_stuck_debate(self, db: AsyncSession, debate: Debate):
+        """
+        Attempt to recover a single stuck debate with retry logic.
+
+        - If judgment is already complete (has scores), skip to audit
+        - If audit times out, switch to a different auditor and retry
+        """
+        debate_id = str(debate.id)
+        excused_auditor_ids: set[uuid.UUID] = set()
+
+        for attempt in range(MAX_WATCHDOG_RECOVERY_ATTEMPTS):
+            try:
+                logger.info(f"Recovery attempt {attempt + 1}/{MAX_WATCHDOG_RECOVERY_ATTEMPTS} for debate {debate_id}")
+
+                # Reload debate to get fresh state
+                await db.refresh(debate)
+
+                # Load related models for logging
+                judge = await db.get(Model, debate.judge_id)
+                auditor = await db.get(Model, debate.auditor_id)
+                judge_name = judge.name if judge else "Unknown"
+                auditor_name = auditor.name if auditor else "Unknown"
+
+                judge_service = JudgeService(db)
+
+                # Check if judgment is already complete (has scores)
+                judgment_complete = debate.pro_score is not None and debate.con_score is not None
+
+                if not judgment_complete:
+                    # Run judgment
+                    logger.info(f"Running judgment for stuck debate {debate_id} with judge {judge_name}")
+                    await judge_service.judge_debate(debate.id)
+                    await db.commit()
+                    logger.info(f"Judgment completed for stuck debate {debate_id}")
+                else:
+                    logger.info(f"Judgment already complete for {debate_id} (Pro: {debate.pro_score}, Con: {debate.con_score}), skipping to audit")
+
+                # Run audit
+                logger.info(f"Running audit for stuck debate {debate_id} with auditor {auditor_name}")
+                await judge_service.audit_judge(debate.id)
+                await db.commit()
+                logger.info(f"Audit completed for stuck debate {debate_id}")
+
+                # Update Elo ratings
+                await update_elos_for_debate(db, debate.id)
+
+                # Mark topic as debated
+                topic = await db.get(Topic, debate.topic_id)
+                if topic and topic.status != TopicStatus.DEBATED:
+                    topic.status = TopicStatus.DEBATED
+                    topic.debated_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"Successfully recovered stuck debate {debate_id}")
+                return  # Success!
+
+            except TimeoutError as e:
+                logger.warning(f"Timeout during recovery of debate {debate_id}: {e}")
+                await db.rollback()
+
+                # Try switching to a different auditor
+                if attempt < MAX_WATCHDOG_RECOVERY_ATTEMPTS - 1:
+                    excused_auditor_ids.add(debate.auditor_id)
+                    new_auditor = await self._find_replacement_auditor(
+                        db, debate, excused_auditor_ids
+                    )
+                    if new_auditor:
+                        logger.info(f"Switching auditor from {auditor_name} to {new_auditor.name} for debate {debate_id}")
+                        debate.auditor_id = new_auditor.id
+                        await db.commit()
+                    else:
+                        logger.error(f"No replacement auditor available for debate {debate_id}")
+                        break
+                continue
+
+            except Exception as e:
+                logger.error(f"Failed to recover stuck debate {debate_id}: {e}", exc_info=True)
+                await db.rollback()
+                break
+
+        logger.error(f"All recovery attempts failed for debate {debate_id}")
+
+    async def _find_replacement_auditor(
+        self,
+        db: AsyncSession,
+        debate: Debate,
+        exclude_ids: set[uuid.UUID],
+    ) -> Model | None:
+        """
+        Find a replacement auditor for a stuck debate.
+
+        Excludes:
+        - The judge (conflict of interest)
+        - Both debaters (conflict of interest)
+        - Any previously excused auditors
+        """
+        all_excluded = {
+            debate.judge_id,
+            debate.debater_pro_id,
+            debate.debater_con_id,
+        } | exclude_ids
+
+        result = await db.execute(
+            select(Model)
+            .where(
+                Model.is_active == True,
+                Model.id.not_in(all_excluded),
+            )
+            .order_by(Model.elo_rating.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
 
 async def run_single_debate(db: AsyncSession) -> Debate | None:
