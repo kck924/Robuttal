@@ -8,6 +8,8 @@ import { Topic, DebateListItem, getDebates } from '@/lib/api';
 const ADMIN_EMAIL = 'kevinklein333@gmail.com'; // Your admin email
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
+type TabType = 'topics' | 'debates' | 'costs';
+
 interface PendingTopicsResponse {
   topics: Topic[];
   total: number;
@@ -67,8 +69,20 @@ function formatLatency(ms: number): string {
   return `${Math.round(ms)}ms`;
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
+  const [activeTab, setActiveTab] = useState<TabType>('topics');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [costStats, setCostStats] = useState<CostStatsResponse | null>(null);
   const [debates, setDebates] = useState<DebateListItem[]>([]);
@@ -131,7 +145,7 @@ export default function AdminPage() {
   async function fetchDebates() {
     setDebatesLoading(true);
     try {
-      const response = await getDebates({ limit: 20 });
+      const response = await getDebates({ limit: 50 });
       setDebates(response.debates);
       setDebatesTotal(response.total);
     } catch (err) {
@@ -232,11 +246,17 @@ export default function AdminPage() {
     );
   }
 
+  const tabs = [
+    { id: 'topics' as TabType, label: 'Topic Approval', count: topics.length },
+    { id: 'debates' as TabType, label: 'Debates', count: debatesTotal },
+    { id: 'costs' as TabType, label: 'API Costs', count: null },
+  ];
+
   return (
     <div className="container-wide py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-        <p className="text-gray-600 mt-1">Moderate topics and monitor API costs</p>
+        <p className="text-gray-600 mt-1">Moderate topics, manage debates, and monitor API costs</p>
       </div>
 
       {error && (
@@ -245,340 +265,376 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Cost Monitoring Section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">API Cost Monitoring</h2>
-          <select
-            value={costDays}
-            onChange={(e) => setCostDays(Number(e.target.value))}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={365}>Last year</option>
-          </select>
-        </div>
-
-        {costLoading ? (
-          <div className="card">
-            <div className="card-body flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-            </div>
-          </div>
-        ) : costStats ? (
-          <>
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <div className="card">
-                <div className="card-body text-center">
-                  <div className="text-2xl font-bold text-green-600">{formatCost(costStats.total_cost_usd)}</div>
-                  <div className="text-xs text-gray-500">Total Cost</div>
-                </div>
-              </div>
-              <div className="card">
-                <div className="card-body text-center">
-                  <div className="text-2xl font-bold text-blue-600">{formatTokens(costStats.total_input_tokens)}</div>
-                  <div className="text-xs text-gray-500">Input Tokens</div>
-                </div>
-              </div>
-              <div className="card">
-                <div className="card-body text-center">
-                  <div className="text-2xl font-bold text-purple-600">{formatTokens(costStats.total_output_tokens)}</div>
-                  <div className="text-xs text-gray-500">Output Tokens</div>
-                </div>
-              </div>
-              <div className="card">
-                <div className="card-body text-center">
-                  <div className="text-2xl font-bold text-orange-600">{costStats.total_api_calls}</div>
-                  <div className="text-xs text-gray-500">API Calls</div>
-                </div>
-              </div>
-              <div className="card">
-                <div className="card-body text-center">
-                  <div className="text-2xl font-bold text-indigo-600">{formatCost(costStats.avg_cost_per_debate)}</div>
-                  <div className="text-xs text-gray-500">Avg/Debate</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Cost by Model */}
-            {costStats.by_model.length > 0 && (
-              <div className="card mb-6">
-                <div className="card-header">
-                  <h3 className="text-lg font-semibold">Cost by Model</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Model</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Input</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Output</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Calls</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg Latency</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {costStats.by_model.map((model) => (
-                        <tr key={model.model_id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{model.model_name}</td>
-                          <td className="px-4 py-3 text-sm text-gray-500 capitalize">{model.provider}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(model.total_input_tokens)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(model.total_output_tokens)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{model.api_calls}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatLatency(model.avg_latency_ms)}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">{formatCost(model.total_cost_usd)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Daily Breakdown */}
-            {costStats.by_day.length > 0 && (
-              <div className="card">
-                <div className="card-header">
-                  <h3 className="text-lg font-semibold">Daily Breakdown</h3>
-                </div>
-                <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">API Calls</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Input Tokens</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Output Tokens</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {costStats.by_day.map((day) => (
-                        <tr key={day.date} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{day.date}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{day.api_calls}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(day.total_input_tokens)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(day.total_output_tokens)}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">{formatCost(day.total_cost_usd)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {costStats.by_model.length === 0 && costStats.by_day.length === 0 && (
-              <div className="card">
-                <div className="card-body text-center py-12 text-gray-500">
-                  No API usage data recorded yet. Run a debate to see cost statistics.
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="card">
-            <div className="card-body text-center py-12 text-gray-500">
-              Failed to load cost statistics
-            </div>
-          </div>
-        )}
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="flex gap-4" aria-label="Tabs">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {tab.label}
+              {tab.count !== null && (
+                <span
+                  className={`ml-2 py-0.5 px-2 rounded-full text-xs ${
+                    activeTab === tab.id
+                      ? 'bg-primary-100 text-primary-600'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Topic Moderation Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Topic Moderation</h2>
+      {/* Topic Approval Tab */}
+      {activeTab === 'topics' && (
+        <div>
+          {/* Pending count stat */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="card">
+              <div className="card-body text-center">
+                <div className="text-3xl font-bold text-primary-600">{topics.length}</div>
+                <div className="text-sm text-gray-500">Pending Moderation</div>
+              </div>
+            </div>
+          </div>
 
-        {/* Pending count stat */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Pending Topics */}
           <div className="card">
-            <div className="card-body text-center">
-              <div className="text-3xl font-bold text-primary-600">{topics.length}</div>
-              <div className="text-sm text-gray-500">Pending Moderation</div>
+            <div className="card-header">
+              <h3 className="text-lg font-semibold">Topics Awaiting Approval</h3>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {topics.length === 0 ? (
+                <div className="card-body text-center py-12 text-gray-500">
+                  No topics pending moderation
+                </div>
+              ) : (
+                topics.map((topic) => (
+                  <div key={topic.id} className="card-body flex items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                          {topic.category}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          by {topic.submitted_by}
+                        </span>
+                      </div>
+                      <h3 className="font-medium text-gray-900">{topic.title}</h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Submitted {new Date(topic.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleModerate(topic.id, 'approve')}
+                        disabled={actionLoading === topic.id}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                      >
+                        {actionLoading === topic.id ? '...' : 'Approve'}
+                      </button>
+                      <button
+                        onClick={() => handleModerate(topic.id, 'reject')}
+                        disabled={actionLoading === topic.id}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                      >
+                        {actionLoading === topic.id ? '...' : 'Reject'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
+      )}
 
-        {/* Pending Topics */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-semibold">Topics Awaiting Approval</h3>
+      {/* Debates Tab */}
+      {activeTab === 'debates' && (
+        <div>
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="card">
+              <div className="card-body text-center">
+                <div className="text-3xl font-bold text-primary-600">{debatesTotal}</div>
+                <div className="text-sm text-gray-500">Total Debates</div>
+              </div>
+            </div>
           </div>
-          <div className="divide-y divide-gray-100">
-            {topics.length === 0 ? (
+
+          {/* Debates Table */}
+          <div className="card">
+            <div className="card-header flex items-center justify-between">
+              <h3 className="text-lg font-semibold">All Debates</h3>
+              <button
+                onClick={fetchDebates}
+                disabled={debatesLoading}
+                className="text-sm text-primary-600 hover:text-primary-700 disabled:opacity-50"
+              >
+                {debatesLoading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+
+            {debatesLoading ? (
+              <div className="card-body flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+              </div>
+            ) : debates.length === 0 ? (
               <div className="card-body text-center py-12 text-gray-500">
-                No topics pending moderation
+                No debates found
               </div>
             ) : (
-              topics.map((topic) => (
-                <div key={topic.id} className="card-body flex items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                        {topic.category}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        by {topic.submitted_by}
-                      </span>
-                    </div>
-                    <h3 className="font-medium text-gray-900">{topic.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Submitted {new Date(topic.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleModerate(topic.id, 'approve')}
-                      disabled={actionLoading === topic.id}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
-                    >
-                      {actionLoading === topic.id ? '...' : 'Approve'}
-                    </button>
-                    <button
-                      onClick={() => handleModerate(topic.id, 'reject')}
-                      disabled={actionLoading === topic.id}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
-                    >
-                      {actionLoading === topic.id ? '...' : 'Reject'}
-                    </button>
-                  </div>
-                </div>
-              ))
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Score</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {debates.map((debate) => (
+                      <tr key={debate.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                          <div>{formatDateTime(debate.completed_at || debate.scheduled_at)}</div>
+                          <div className="text-xs text-gray-400">
+                            {new Date(debate.completed_at || debate.scheduled_at).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-gray-900 max-w-sm truncate">
+                            {debate.topic.title}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {debate.debater_pro.name} vs {debate.debater_con.name}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                              debate.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : debate.status === 'in_progress'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : debate.status === 'judging'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {debate.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm">
+                          {debate.pro_score !== null && debate.con_score !== null ? (
+                            <span className="font-mono">
+                              {debate.pro_score} - {debate.con_score}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/debates/${debate.id}`}
+                              className="text-sm text-primary-600 hover:text-primary-700"
+                            >
+                              View
+                            </Link>
+                            {deleteConfirm === debate.id ? (
+                              <>
+                                <button
+                                  onClick={() => handleDeleteDebate(debate.id)}
+                                  disabled={actionLoading === debate.id}
+                                  className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                                >
+                                  {actionLoading === debate.id ? '...' : 'Confirm'}
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm(null)}
+                                  className="text-sm text-gray-500 hover:text-gray-700"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setDeleteConfirm(debate.id)}
+                                className="text-sm text-red-600 hover:text-red-700"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Debate Management Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Debate Management</h2>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="card">
-            <div className="card-body text-center">
-              <div className="text-3xl font-bold text-primary-600">{debatesTotal}</div>
-              <div className="text-sm text-gray-500">Total Debates</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Debates */}
-        <div className="card">
-          <div className="card-header flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Recent Debates</h3>
-            <button
-              onClick={fetchDebates}
-              disabled={debatesLoading}
-              className="text-sm text-primary-600 hover:text-primary-700 disabled:opacity-50"
+      {/* API Costs Tab */}
+      {activeTab === 'costs' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <select
+              value={costDays}
+              onChange={(e) => setCostDays(Number(e.target.value))}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
-              {debatesLoading ? 'Loading...' : 'Refresh'}
-            </button>
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={365}>Last year</option>
+            </select>
           </div>
 
-          {debatesLoading ? (
-            <div className="card-body flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+          {costLoading ? (
+            <div className="card">
+              <div className="card-body flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+              </div>
             </div>
-          ) : debates.length === 0 ? (
-            <div className="card-body text-center py-12 text-gray-500">
-              No debates found
-            </div>
+          ) : costStats ? (
+            <>
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="text-2xl font-bold text-green-600">{formatCost(costStats.total_cost_usd)}</div>
+                    <div className="text-xs text-gray-500">Total Cost</div>
+                  </div>
+                </div>
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="text-2xl font-bold text-blue-600">{formatTokens(costStats.total_input_tokens)}</div>
+                    <div className="text-xs text-gray-500">Input Tokens</div>
+                  </div>
+                </div>
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="text-2xl font-bold text-purple-600">{formatTokens(costStats.total_output_tokens)}</div>
+                    <div className="text-xs text-gray-500">Output Tokens</div>
+                  </div>
+                </div>
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="text-2xl font-bold text-orange-600">{costStats.total_api_calls}</div>
+                    <div className="text-xs text-gray-500">API Calls</div>
+                  </div>
+                </div>
+                <div className="card">
+                  <div className="card-body text-center">
+                    <div className="text-2xl font-bold text-indigo-600">{formatCost(costStats.avg_cost_per_debate)}</div>
+                    <div className="text-xs text-gray-500">Avg/Debate</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cost by Model */}
+              {costStats.by_model.length > 0 && (
+                <div className="card mb-6">
+                  <div className="card-header">
+                    <h3 className="text-lg font-semibold">Cost by Model</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Model</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Input</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Output</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Calls</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg Latency</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {costStats.by_model.map((model) => (
+                          <tr key={model.model_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{model.model_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-500 capitalize">{model.provider}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(model.total_input_tokens)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(model.total_output_tokens)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{model.api_calls}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatLatency(model.avg_latency_ms)}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">{formatCost(model.total_cost_usd)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Daily Breakdown */}
+              {costStats.by_day.length > 0 && (
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="text-lg font-semibold">Daily Breakdown</h3>
+                  </div>
+                  <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">API Calls</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Input Tokens</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Output Tokens</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {costStats.by_day.map((day) => (
+                          <tr key={day.date} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{day.date}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{day.api_calls}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(day.total_input_tokens)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">{formatTokens(day.total_output_tokens)}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">{formatCost(day.total_cost_usd)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {costStats.by_model.length === 0 && costStats.by_day.length === 0 && (
+                <div className="card">
+                  <div className="card-body text-center py-12 text-gray-500">
+                    No API usage data recorded yet. Run a debate to see cost statistics.
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Score</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {debates.map((debate) => (
-                    <tr key={debate.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                        {new Date(debate.completed_at || debate.scheduled_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                          {debate.topic.title}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {debate.debater_pro.name} vs {debate.debater_con.name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                            debate.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : debate.status === 'in_progress'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {debate.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm">
-                        {debate.pro_score !== null && debate.con_score !== null ? (
-                          <span className="font-mono">
-                            {debate.pro_score} - {debate.con_score}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/debates/${debate.id}`}
-                            className="text-sm text-primary-600 hover:text-primary-700"
-                          >
-                            View
-                          </Link>
-                          {deleteConfirm === debate.id ? (
-                            <>
-                              <button
-                                onClick={() => handleDeleteDebate(debate.id)}
-                                disabled={actionLoading === debate.id}
-                                className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
-                              >
-                                {actionLoading === debate.id ? '...' : 'Confirm'}
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="text-sm text-gray-500 hover:text-gray-700"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => setDeleteConfirm(debate.id)}
-                              className="text-sm text-red-600 hover:text-red-700"
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="card">
+              <div className="card-body text-center py-12 text-gray-500">
+                Failed to load cost statistics
+              </div>
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
