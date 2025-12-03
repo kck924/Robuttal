@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { DebateListItem, Model, getDebates } from '@/lib/api';
 import ArchiveFilters from './ArchiveFilters';
 import ArchiveRow from './ArchiveRow';
@@ -15,6 +15,10 @@ interface ArchiveContentProps {
 }
 
 const PAGE_SIZE = 10;
+
+// Simple cache for prefetched pages
+type PageCache = Map<string, { debates: DebateListItem[]; total: number; timestamp: number }>;
+const CACHE_TTL = 60000; // 1 minute
 
 export default function ArchiveContent({
   initialDebates,
@@ -39,7 +43,75 @@ export default function ArchiveContent({
   const isFirstRender = useRef(true);
   const hasValidInitialData = useRef(initialDebates.length > 0);
 
+  // Page cache
+  const pageCache = useRef<PageCache>(new Map());
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // Generate cache key for current filters
+  const getCacheKey = useCallback((pageNum: number) => {
+    return `${pageNum}-${selectedModel}-${selectedCategory}-${dateFrom}-${dateTo}`;
+  }, [selectedModel, selectedCategory, dateFrom, dateTo]);
+
+  // Apply client-side filters
+  const applyFilters = useCallback((debates: DebateListItem[]) => {
+    let filtered = debates;
+
+    if (selectedCategory) {
+      filtered = filtered.filter(
+        (d) => d.topic.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter((d) => {
+        const debateDate = new Date(d.completed_at || d.scheduled_at);
+        return debateDate >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((d) => {
+        const debateDate = new Date(d.completed_at || d.scheduled_at);
+        return debateDate <= toDate;
+      });
+    }
+
+    return filtered;
+  }, [selectedCategory, dateFrom, dateTo]);
+
+  // Prefetch a specific page
+  const prefetchPage = useCallback(async (pageNum: number) => {
+    const cacheKey = getCacheKey(pageNum);
+    const cached = pageCache.current.get(cacheKey);
+
+    // Skip if already cached and not expired
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return;
+    }
+
+    try {
+      const response = await getDebates({
+        status: 'completed',
+        limit: PAGE_SIZE,
+        offset: (pageNum - 1) * PAGE_SIZE,
+        model_id: selectedModel || undefined,
+      });
+
+      const filtered = applyFilters(response.debates);
+
+      pageCache.current.set(cacheKey, {
+        debates: filtered,
+        total: response.total,
+        timestamp: Date.now(),
+      });
+    } catch {
+      // Silently fail prefetch - it's just an optimization
+    }
+  }, [getCacheKey, selectedModel, applyFilters]);
 
   // Single effect that handles all fetching
   useEffect(() => {
@@ -48,6 +120,10 @@ export default function ArchiveContent({
     // Only skip on true first render with valid data and no retry requested
     if (isFirstRender.current && isFirstPageNoFilters && hasValidInitialData.current && retryCount === 0) {
       isFirstRender.current = false;
+      // Prefetch page 2 in the background
+      if (initialTotal > PAGE_SIZE) {
+        prefetchPage(2);
+      }
       return;
     }
 
@@ -57,6 +133,20 @@ export default function ArchiveContent({
     let cancelled = false;
 
     const fetchData = async () => {
+      // Check cache first
+      const cacheKey = getCacheKey(page);
+      const cached = pageCache.current.get(cacheKey);
+
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setDebates(cached.debates);
+        setTotal(cached.total);
+        // Still prefetch next page
+        if (page < Math.ceil(cached.total / PAGE_SIZE)) {
+          prefetchPage(page + 1);
+        }
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       try {
@@ -69,34 +159,23 @@ export default function ArchiveContent({
 
         if (cancelled) return;
 
-        // Client-side filtering for category and date (ideally these would be API params)
-        let filtered = response.debates;
+        const filtered = applyFilters(response.debates);
 
-        if (selectedCategory) {
-          filtered = filtered.filter(
-            (d) => d.topic.category.toLowerCase() === selectedCategory.toLowerCase()
-          );
-        }
-
-        if (dateFrom) {
-          const fromDate = new Date(dateFrom);
-          filtered = filtered.filter((d) => {
-            const debateDate = new Date(d.completed_at || d.scheduled_at);
-            return debateDate >= fromDate;
-          });
-        }
-
-        if (dateTo) {
-          const toDate = new Date(dateTo);
-          toDate.setHours(23, 59, 59, 999);
-          filtered = filtered.filter((d) => {
-            const debateDate = new Date(d.completed_at || d.scheduled_at);
-            return debateDate <= toDate;
-          });
-        }
+        // Cache this result
+        pageCache.current.set(cacheKey, {
+          debates: filtered,
+          total: response.total,
+          timestamp: Date.now(),
+        });
 
         setDebates(filtered);
         setTotal(response.total);
+
+        // Prefetch next page
+        const newTotalPages = Math.ceil(response.total / PAGE_SIZE);
+        if (page < newTotalPages) {
+          prefetchPage(page + 1);
+        }
       } catch (err) {
         if (cancelled) return;
         console.error('Failed to fetch debates:', err);
@@ -113,7 +192,12 @@ export default function ArchiveContent({
     return () => {
       cancelled = true;
     };
-  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, retryCount]);
+  }, [page, selectedModel, selectedCategory, dateFrom, dateTo, retryCount, getCacheKey, applyFilters, prefetchPage, initialTotal]);
+
+  // Clear cache when filters change
+  useEffect(() => {
+    pageCache.current.clear();
+  }, [selectedModel, selectedCategory, dateFrom, dateTo]);
 
   const handleRetry = () => {
     setRetryCount((c) => c + 1);
