@@ -4,16 +4,21 @@ import { useState, useEffect } from 'react';
 
 // Debate times in UTC - must match backend scheduler.py DEBATE_TIMES
 // These are: 6 AM, 9 AM, 12 PM, 3 PM, 6 PM, 9 PM EST
+// Ordered chronologically within an EST day (6 AM EST to 9 PM EST)
 const DEBATE_TIMES_UTC: [number, number][] = [
-  [2, 0],   // 9 PM EST (previous day)
   [11, 0],  // 6 AM EST
   [14, 0],  // 9 AM EST
   [17, 0],  // 12 PM EST
   [20, 0],  // 3 PM EST
   [23, 0],  // 6 PM EST
+  [2, 0],   // 9 PM EST (next UTC day, but same EST day)
 ];
 
 const TOTAL_DAILY_DEBATES = 6;
+
+// The 9 PM EST debate (2:00 UTC) is on the next UTC day but same EST day
+// EST day boundary is at 5 AM UTC (midnight EST)
+const EST_DAY_START_UTC = 5; // 5 AM UTC = midnight EST
 
 function getNextDebateTime(): Date {
   const now = new Date();
@@ -21,8 +26,9 @@ function getNextDebateTime(): Date {
   const currentMinuteUTC = now.getUTCMinutes();
   const currentTimeMinutes = currentHourUTC * 60 + currentMinuteUTC;
 
-  // Find the next debate time
-  for (const [hour, minute] of DEBATE_TIMES_UTC) {
+  // Check times 11, 14, 17, 20, 23 (same UTC day)
+  for (let i = 0; i < 5; i++) {
+    const [hour, minute] = DEBATE_TIMES_UTC[i];
     const debateTimeMinutes = hour * 60 + minute;
     if (debateTimeMinutes > currentTimeMinutes) {
       const next = new Date(now);
@@ -31,11 +37,36 @@ function getNextDebateTime(): Date {
     }
   }
 
-  // All debates for today are done, next is tomorrow at first debate time
-  const [nextHour, nextMinute] = DEBATE_TIMES_UTC[0];
+  // Check if we're before 2 AM UTC (9 PM EST is still "today" in EST)
+  const [lastHour, lastMinute] = DEBATE_TIMES_UTC[5]; // 2:00 UTC
+  const lastDebateMinutes = lastHour * 60 + lastMinute;
+
+  if (currentTimeMinutes >= 23 * 60) {
+    // After 11 PM UTC, next debate is 2 AM UTC tomorrow (9 PM EST tonight)
+    const next = new Date(now);
+    next.setUTCDate(next.getUTCDate() + 1);
+    next.setUTCHours(lastHour, lastMinute, 0, 0);
+    return next;
+  }
+
+  if (currentTimeMinutes < lastDebateMinutes) {
+    // Before 2 AM UTC, check if 2 AM is still upcoming today
+    const next = new Date(now);
+    next.setUTCHours(lastHour, lastMinute, 0, 0);
+    return next;
+  }
+
+  // After 2 AM UTC but before 11 AM UTC - next debate is 11 AM UTC (6 AM EST)
+  if (currentTimeMinutes < 11 * 60) {
+    const next = new Date(now);
+    next.setUTCHours(11, 0, 0, 0);
+    return next;
+  }
+
+  // Fallback: next day at 11 AM UTC (6 AM EST)
   const tomorrow = new Date(now);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  tomorrow.setUTCHours(nextHour, nextMinute, 0, 0);
+  tomorrow.setUTCHours(11, 0, 0, 0);
   return tomorrow;
 }
 
@@ -45,13 +76,37 @@ function getDebatesCompletedToday(): number {
   const currentMinuteUTC = now.getUTCMinutes();
   const currentTimeMinutes = currentHourUTC * 60 + currentMinuteUTC;
 
+  // "Today" in EST runs from 5 AM UTC to 5 AM UTC next day
+  // Debates are at 11, 14, 17, 20, 23 UTC (same day) and 2 UTC (next day)
+
   let completed = 0;
-  for (const [hour, minute] of DEBATE_TIMES_UTC) {
-    const debateTimeMinutes = hour * 60 + minute;
-    if (debateTimeMinutes <= currentTimeMinutes) {
+
+  // If we're between 2 AM and 5 AM UTC, we're in the tail end of an EST day
+  // Only the 9 PM EST (2 AM UTC) debate could have run
+  if (currentTimeMinutes >= 2 * 60 && currentTimeMinutes < EST_DAY_START_UTC * 60) {
+    // Check if 2 AM has passed
+    if (currentTimeMinutes >= 2 * 60) {
+      completed = 6; // All debates for this EST day are done
+    }
+    return completed;
+  }
+
+  // Between 5 AM and 11 AM UTC - no debates have run yet for this EST day
+  if (currentTimeMinutes >= EST_DAY_START_UTC * 60 && currentTimeMinutes < 11 * 60) {
+    return 0;
+  }
+
+  // Count debates from 11, 14, 17, 20, 23 that have passed
+  const dayDebates = [11, 14, 17, 20, 23];
+  for (const hour of dayDebates) {
+    if (currentTimeMinutes >= hour * 60) {
       completed++;
     }
   }
+
+  // The 9 PM EST (2 AM UTC) hasn't happened yet since we're still in the same UTC day
+  // (it will be tomorrow UTC but tonight EST)
+
   return completed;
 }
 
