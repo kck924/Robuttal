@@ -174,13 +174,42 @@ function ScheduleItem({ debate, index }: { debate: ScheduledDebateItem; index: n
   );
 }
 
+// Compact mobile banner version of the schedule
+export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
+  const hasLive = schedule.in_progress_count > 0;
+  const remaining = schedule.total_scheduled - schedule.completed_count - schedule.in_progress_count;
+
+  return (
+    <div className="lg:hidden bg-gray-50 border-b border-gray-200 sticky top-16 z-40">
+      <div className="container-wide">
+        <div className="flex items-center justify-between py-2 text-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-500 font-medium">Today</span>
+            <div className="flex items-center gap-2">
+              {hasLive && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                  {schedule.in_progress_count} Live
+                </span>
+              )}
+              <span className="text-green-600 font-medium">{schedule.completed_count} done</span>
+              <span className="text-gray-400">{remaining} left</span>
+            </div>
+          </div>
+          <span className="text-gray-400">{schedule.completed_count}/{schedule.total_scheduled}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DailySchedule({ schedule }: DailyScheduleProps) {
   const hasDebates = schedule.debates.length > 0;
   const hasUpcoming = schedule.upcoming_slots && schedule.upcoming_slots.length > 0;
   const hasContent = hasDebates || hasUpcoming;
 
   return (
-    <div className="card">
+    <div className="card hidden lg:block">
       <div className="card-header flex items-center justify-between">
         <div className="flex items-center gap-2">
           <svg

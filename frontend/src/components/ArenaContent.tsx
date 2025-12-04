@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { DebateDetail, VoteTally, DailyScheduleResponse, Topic, voteTopic } from '@/lib/api';
 import { formatRelativeTime, MAIN_DEBATE_PHASES } from '@/lib/utils';
 import DebateMatchup from './DebateMatchup';
-import DailySchedule from './DailySchedule';
+import DailySchedule, { MobileScheduleBanner } from './DailySchedule';
 import JudgeScoreComparison from './JudgeScoreComparison';
 import ScoreContextWidget from './ScoreContextWidget';
 import TranscriptViewer from './TranscriptViewer';
@@ -258,7 +258,11 @@ export default function ArenaContent({ debate, isLive, votes, schedule, topTopic
   }
 
   return (
-    <div className="container-wide py-4 sm:py-8">
+    <>
+      {/* Mobile Schedule Banner */}
+      {schedule && <MobileScheduleBanner schedule={schedule} />}
+
+      <div className="container-wide py-4 sm:py-8">
       {/* Status Banner */}
       {isLive && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-3 sm:px-4 py-2 sm:py-3 mb-4 sm:mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
