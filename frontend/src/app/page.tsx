@@ -1,8 +1,31 @@
 import Link from 'next/link';
-import { getLiveDebate, getDebate, getDebates, getDebateVotes, getTodaysSchedule, getTopics, DailyScheduleResponse, Topic } from '@/lib/api';
+import { getLiveDebate, getDebate, getDebates, getDebateVotes, getTodaysSchedule, getTopics, DailyScheduleResponse, Topic, DebateListItem, DebateDetail } from '@/lib/api';
 import ArenaContent from '@/components/ArenaContent';
 
 export const revalidate = 10; // Revalidate every 10 seconds
+
+/**
+ * Convert a DebateListItem to a minimal DebateDetail for fallback display.
+ * This allows showing basic debate info when the detailed endpoint fails.
+ */
+function listItemToDetail(item: DebateListItem): DebateDetail {
+  return {
+    ...item,
+    // Use judge as auditor fallback (better than nothing)
+    auditor: item.judge,
+    judge_score: null,
+    started_at: null,
+    transcript: [],
+    duration_seconds: null,
+    total_word_count: 0,
+    pro_word_count: 0,
+    con_word_count: 0,
+    pro_elo_history: [],
+    con_elo_history: [],
+    judge_score_context: null,
+    debate_score_context: null,
+  };
+}
 
 async function getArenaData() {
   // Fetch schedule and top topics (these are independent and can fail gracefully)
@@ -40,7 +63,17 @@ async function getArenaData() {
   try {
     const debatesResponse = await getDebates({ status: 'completed', limit: 1 });
     if (debatesResponse.debates.length > 0) {
-      const debate = await getDebate(debatesResponse.debates[0].id);
+      const listItem = debatesResponse.debates[0];
+
+      // Try to get full debate details, but fall back to list item if it fails
+      let debate: DebateDetail;
+      try {
+        debate = await getDebate(listItem.id);
+      } catch (detailError) {
+        console.error('Failed to fetch debate details, using list item fallback:', detailError);
+        debate = listItemToDetail(listItem);
+      }
+
       const votes = await getDebateVotes(debate.id).catch(() => null);
       return {
         debate,
