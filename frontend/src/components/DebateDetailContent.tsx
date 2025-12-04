@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { DebateDetail, VoteTally, voteOnDebate, generateSlug } from '@/lib/api';
 import { useToastActions } from './Toast';
 import { trackDebateView, trackDebateShare, trackDebateVote, trackCopyToClipboard, trackError } from '@/lib/analytics';
+import ScoreContextWidget from './ScoreContextWidget';
+import JudgeScoreComparison from './JudgeScoreComparison';
 
 // Social share button component
 function ShareButtons({ debate }: { debate: DebateDetail }) {
@@ -1112,32 +1114,11 @@ export default function DebateDetailContent({
         </div>
       </div>
 
-      {/* Stats and Score Context Widget */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Stats - takes 2 columns on large screens */}
-        <div className="lg:col-span-2 grid grid-cols-2 gap-2 sm:gap-4">
-          <div className="card">
-            <div className="card-body py-3 sm:py-4 text-center">
-              <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
-                {debate.judge_score !== null ? debate.judge_score.toFixed(1) : '—'}
-              </div>
-              <div className="text-[10px] sm:text-xs text-gray-500">Judge Score</div>
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-body py-3 sm:py-4 text-center">
-              <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
-                {votes?.agreement_with_judge !== null && votes?.agreement_with_judge !== undefined
-                  ? `${votes.agreement_with_judge.toFixed(0)}%`
-                  : '—'}
-              </div>
-              <div className="text-[10px] sm:text-xs text-gray-500">Agree w/ Judge</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Phase Filter */}
+      {/* Main Content Area - Two columns on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+        {/* Main Column - Transcript */}
+        <div className="lg:col-span-8">
+          {/* Phase Filter */}
       <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1">
         <button
           onClick={() => setSelectedPhase(null)}
@@ -1314,65 +1295,150 @@ export default function DebateDetailContent({
         </div>
       </div>
 
-      {/* Community Vote */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Community Vote</h2>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">Who do you think should have won?</p>
-        </div>
-        <div className="card-body">
-          {votes && votes.total_votes > 0 && (
-            <div className="mb-3 sm:mb-4">
-              <div className="flex items-center gap-1 sm:gap-2 mb-2">
-                <div
-                  className="h-2 sm:h-3 bg-green-500 rounded-l transition-all"
-                  style={{ width: `${votes.pro_model.percentage}%` }}
-                />
-                <div
-                  className="h-2 sm:h-3 bg-red-500 rounded-r transition-all"
-                  style={{ width: `${votes.con_model.percentage}%` }}
-                />
+          {/* Community Vote */}
+          <div className="card mt-6">
+            <div className="card-header">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Community Vote</h2>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">Who do you think should have won?</p>
+            </div>
+            <div className="card-body">
+              {votes && votes.total_votes > 0 && (
+                <div className="mb-3 sm:mb-4">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-2">
+                    <div
+                      className="h-2 sm:h-3 bg-green-500 rounded-l transition-all"
+                      style={{ width: `${votes.pro_model.percentage}%` }}
+                    />
+                    <div
+                      className="h-2 sm:h-3 bg-red-500 rounded-r transition-all"
+                      style={{ width: `${votes.con_model.percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-green-600 font-medium">
+                      {votes.pro_model.votes} ({votes.pro_model.percentage.toFixed(0)}%)
+                    </span>
+                    <span className="text-red-600 font-medium">
+                      {votes.con_model.votes} ({votes.con_model.percentage.toFixed(0)}%)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 sm:gap-4">
+                <button
+                  onClick={() => handleVote(debate.debater_pro.id)}
+                  disabled={hasVoted || isVoting}
+                  className={`flex-1 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors ${
+                    hasVoted
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-green-50 text-green-700 hover:bg-green-100'
+                  }`}
+                >
+                  Vote Pro
+                </button>
+                <button
+                  onClick={() => handleVote(debate.debater_con.id)}
+                  disabled={hasVoted || isVoting}
+                  className={`flex-1 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors ${
+                    hasVoted
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-red-50 text-red-700 hover:bg-red-100'
+                  }`}
+                >
+                  Vote Con
+                </button>
               </div>
-              <div className="flex justify-between text-xs sm:text-sm">
-                <span className="text-green-600 font-medium">
-                  {votes.pro_model.votes} ({votes.pro_model.percentage.toFixed(0)}%)
-                </span>
-                <span className="text-red-600 font-medium">
-                  {votes.con_model.votes} ({votes.con_model.percentage.toFixed(0)}%)
-                </span>
+
+              <p className="text-xs sm:text-sm text-gray-500 text-center mt-3 sm:mt-4">
+                {votes?.total_votes || 0} votes cast
+                {hasVoted && ' • Thanks!'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar - Analytics Widgets (Desktop only) */}
+        <div className="lg:col-span-4 hidden lg:block">
+          <div className="sticky top-6 space-y-6">
+            {/* Score Context Widget */}
+            {debate.status === 'completed' && debate.pro_score !== null && debate.con_score !== null && (
+              <ScoreContextWidget debate={debate} />
+            )}
+
+            {/* Judge Quality Card */}
+            {debate.status === 'completed' && debate.judge_score && (
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="font-semibold text-gray-900">Judge Quality</h3>
+                </div>
+                <div className="card-body">
+                  {debate.judge_score_context ? (
+                    <JudgeScoreComparison
+                      context={debate.judge_score_context}
+                      judgeName={debate.judge.name}
+                      auditorName={debate.auditor.name}
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-3xl font-bold font-mono text-purple-600">
+                        {debate.judge_score.toFixed(1)}
+                      </div>
+                      <div className="text-xs text-gray-500 uppercase mt-1">Audit Score</div>
+                      <div className="text-xs text-gray-400 mt-2">
+                        Judged by{' '}
+                        <Link
+                          href={`/models/${generateSlug(debate.judge.name)}`}
+                          className="text-primary-600 hover:underline"
+                        >
+                          {debate.judge.name}
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Stats */}
+            <div className="card">
+              <div className="card-header py-3">
+                <h3 className="text-sm font-semibold text-gray-900">Quick Stats</h3>
+              </div>
+              <div className="card-body space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Judge Score</span>
+                  <span className="font-semibold text-gray-900">
+                    {debate.judge_score !== null ? debate.judge_score.toFixed(1) : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Agree w/ Judge</span>
+                  <span className="font-semibold text-gray-900">
+                    {votes?.agreement_with_judge !== null && votes?.agreement_with_judge !== undefined
+                      ? `${votes.agreement_with_judge.toFixed(0)}%`
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">Total Votes</span>
+                  <span className="font-semibold text-gray-900">{votes?.total_votes || 0}</span>
+                </div>
+                {debate.is_blinded !== undefined && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500">Evaluation</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      debate.is_blinded
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {debate.is_blinded ? 'Blinded' : 'Unblinded'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              onClick={() => handleVote(debate.debater_pro.id)}
-              disabled={hasVoted || isVoting}
-              className={`flex-1 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors ${
-                hasVoted
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-green-50 text-green-700 hover:bg-green-100'
-              }`}
-            >
-              Vote Pro
-            </button>
-            <button
-              onClick={() => handleVote(debate.debater_con.id)}
-              disabled={hasVoted || isVoting}
-              className={`flex-1 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors ${
-                hasVoted
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-red-50 text-red-700 hover:bg-red-100'
-              }`}
-            >
-              Vote Con
-            </button>
           </div>
-
-          <p className="text-xs sm:text-sm text-gray-500 text-center mt-3 sm:mt-4">
-            {votes?.total_votes || 0} votes cast
-            {hasVoted && ' • Thanks!'}
-          </p>
         </div>
       </div>
 
