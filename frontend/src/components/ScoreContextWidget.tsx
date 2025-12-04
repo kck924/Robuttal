@@ -9,6 +9,7 @@ interface ScoreContextWidgetProps {
 // Dot plot visualization for a single debater's score context
 function ScoreDotPlot({
   label,
+  modelName,
   currentScore,
   historicalAvg,
   siteAvg,
@@ -16,6 +17,7 @@ function ScoreDotPlot({
   color,
 }: {
   label: string;
+  modelName: string | null;
   currentScore: number;
   historicalAvg: number | null;
   siteAvg: number | null;
@@ -30,12 +32,9 @@ function ScoreDotPlot({
   // Convert score to percentage position
   const scoreToPercent = (score: number) => ((score - minScore) / range) * 100;
 
-  // All data points for visualization
+  // All data points for visualization (historical avg shown separately as marker)
   const dataPoints = [
     { value: currentScore, label: 'This debate', color, isMain: true },
-    historicalAvg !== null
-      ? { value: historicalAvg, label: 'Model avg', color: '#6b7280', isMain: false }
-      : null,
     siteAvg !== null
       ? { value: siteAvg, label: 'Site avg', color: '#9ca3af', isMain: false }
       : null,
@@ -64,12 +63,19 @@ function ScoreDotPlot({
     <div className="space-y-1.5">
       {/* Label */}
       <div className="flex items-center justify-between">
-        <span
-          className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color }}
-        >
-          {label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color }}
+          >
+            {label}
+          </span>
+          {modelName && (
+            <span className="text-xs text-gray-500 font-medium truncate max-w-[120px]">
+              {modelName}
+            </span>
+          )}
+        </div>
         <span
           className={`text-xs font-mono font-bold ${
             isAboveAverage
@@ -94,6 +100,29 @@ function ScoreDotPlot({
           />
         ))}
 
+        {/* Historical average marker - prominent vertical line */}
+        {historicalAvg !== null && (
+          <div
+            className="absolute top-0 bottom-0 group z-5"
+            style={{ left: `${scoreToPercent(historicalAvg)}%` }}
+          >
+            {/* Marker line */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 -ml-px"
+              style={{ backgroundColor: color, opacity: 0.4 }}
+            />
+            {/* Diamond marker */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 -ml-1 rotate-45 border-2"
+              style={{ borderColor: color, backgroundColor: 'white' }}
+            />
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20">
+              Model avg: {historicalAvg.toFixed(0)}
+            </div>
+          </div>
+        )}
+
         {/* Data point dots */}
         {dataPoints.map((point, idx) => (
           <div
@@ -116,7 +145,7 @@ function ScoreDotPlot({
         ))}
       </div>
 
-      {/* Legend dots */}
+      {/* Legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-500">
         {dataPoints.map((point, idx) => (
           <span key={idx} className="flex items-center gap-1">
@@ -127,6 +156,15 @@ function ScoreDotPlot({
             {point.label}
           </span>
         ))}
+        {historicalAvg !== null && (
+          <span className="flex items-center gap-1">
+            <span
+              className="w-2 h-2 rotate-45 border"
+              style={{ borderColor: color, backgroundColor: 'white' }}
+            />
+            Model avg
+          </span>
+        )}
       </div>
     </div>
   );
@@ -161,6 +199,7 @@ export default function ScoreContextWidget({ debate }: ScoreContextWidgetProps) 
         {/* Pro score context */}
         <ScoreDotPlot
           label="Pro"
+          modelName={debate.debater_pro?.name ?? null}
           currentScore={debate.pro_score}
           historicalAvg={proHistoricalAvg}
           siteAvg={siteAvg}
@@ -171,6 +210,7 @@ export default function ScoreContextWidget({ debate }: ScoreContextWidgetProps) 
         {/* Con score context */}
         <ScoreDotPlot
           label="Con"
+          modelName={debate.debater_con?.name ?? null}
           currentScore={debate.con_score}
           historicalAvg={conHistoricalAvg}
           siteAvg={siteAvg}
