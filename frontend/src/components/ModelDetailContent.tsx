@@ -807,89 +807,150 @@ export default function ModelDetailContent({ model }: ModelDetailContentProps) {
                 <Link
                   key={debate.id}
                   href={`/debates/${debate.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors"
+                  className="block px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors"
                 >
-                  {/* Result Badge */}
-                  <div
-                    className={`flex-shrink-0 w-16 h-8 rounded flex items-center justify-center text-sm font-semibold ${
-                      isWin
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {isWin ? 'WIN' : 'LOSS'}
-                  </div>
+                  {/* Mobile Layout */}
+                  <div className="sm:hidden">
+                    {/* Row 1: Result badge, Score, Date */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex-shrink-0 w-14 h-7 rounded flex items-center justify-center text-xs font-semibold ${
+                            isWin
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {isWin ? 'WIN' : 'LOSS'}
+                        </div>
+                        {debate.score !== null && debate.opponent_score !== null && (
+                          <div className="flex items-center gap-1 font-mono text-sm">
+                            <span className={isWin ? 'text-green-600 font-semibold' : 'text-gray-500'}>
+                              {debate.score}
+                            </span>
+                            <span className="text-gray-300">-</span>
+                            <span className={!isWin ? 'text-green-600 font-semibold' : 'text-gray-500'}>
+                              {debate.opponent_score}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {completedDate && (
+                          <span className="text-xs text-gray-400 font-mono">
+                            {completedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
 
-                  {/* Topic & Opponent */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 line-clamp-1">
+                    {/* Row 2: Topic */}
+                    <p className="text-sm text-gray-900 line-clamp-2 mb-1.5">
                       {debate.topic_title}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      vs {debate.opponent_name} ({debate.position === 'pro' ? 'PRO' : 'CON'})
-                    </p>
-                  </div>
 
-                  {/* Score */}
-                  <div className="flex-shrink-0 text-right">
-                    {debate.score !== null && debate.opponent_score !== null && (
-                      <div className="flex items-center gap-1">
-                        <span
-                          className={`font-mono text-sm ${
-                            isWin ? 'text-green-600 font-semibold' : 'text-gray-500'
-                          }`}
-                        >
-                          {debate.score}
-                        </span>
-                        <span className="text-gray-300">-</span>
-                        <span
-                          className={`font-mono text-sm ${
-                            !isWin ? 'text-green-600 font-semibold' : 'text-gray-500'
-                          }`}
-                        >
-                          {debate.opponent_score}
-                        </span>
+                    {/* Row 3: Opponent + Elo change */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-500">
+                        vs {debate.opponent_name} ({debate.position === 'pro' ? 'PRO' : 'CON'})
+                      </p>
+                      <div className="bg-gray-50 rounded-md px-1.5 py-0.5">
+                        <EloChangeViz
+                          before={debate.elo_before}
+                          after={debate.elo_after}
+                          history={debate.elo_history}
+                        />
                       </div>
-                    )}
-                  </div>
-
-                  {/* Elo Change - visually separated */}
-                  <div className="flex-shrink-0 pl-3 ml-3 border-l border-gray-200">
-                    <div className="bg-gray-50 rounded-md px-2 py-1">
-                      <EloChangeViz
-                        before={debate.elo_before}
-                        after={debate.elo_after}
-                        history={debate.elo_history}
-                      />
                     </div>
                   </div>
 
-                  {/* Date */}
-                  <div className="flex-shrink-0 w-20 text-right">
-                    {completedDate && (
-                      <div className="text-xs text-gray-500">
-                        {completedDate.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  {/* Desktop Layout */}
+                  <div className="hidden sm:flex items-center gap-4">
+                    {/* Result Badge */}
+                    <div
+                      className={`flex-shrink-0 w-16 h-8 rounded flex items-center justify-center text-sm font-semibold ${
+                        isWin
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {isWin ? 'WIN' : 'LOSS'}
+                    </div>
 
-                  {/* Arrow */}
-                  <svg
-                    className="flex-shrink-0 w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                    {/* Topic & Opponent */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 line-clamp-1">
+                        {debate.topic_title}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        vs {debate.opponent_name} ({debate.position === 'pro' ? 'PRO' : 'CON'})
+                      </p>
+                    </div>
+
+                    {/* Score */}
+                    <div className="flex-shrink-0 text-right">
+                      {debate.score !== null && debate.opponent_score !== null && (
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`font-mono text-sm ${
+                              isWin ? 'text-green-600 font-semibold' : 'text-gray-500'
+                            }`}
+                          >
+                            {debate.score}
+                          </span>
+                          <span className="text-gray-300">-</span>
+                          <span
+                            className={`font-mono text-sm ${
+                              !isWin ? 'text-green-600 font-semibold' : 'text-gray-500'
+                            }`}
+                          >
+                            {debate.opponent_score}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Elo Change - visually separated */}
+                    <div className="flex-shrink-0 pl-3 ml-3 border-l border-gray-200">
+                      <div className="bg-gray-50 rounded-md px-2 py-1">
+                        <EloChangeViz
+                          before={debate.elo_before}
+                          after={debate.elo_after}
+                          history={debate.elo_history}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date */}
+                    <div className="flex-shrink-0 w-20 text-right">
+                      {completedDate && (
+                        <div className="text-xs text-gray-500">
+                          {completedDate.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Arrow */}
+                    <svg
+                      className="flex-shrink-0 w-5 h-5 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </div>
                 </Link>
               );
             })}
