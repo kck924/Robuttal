@@ -236,23 +236,32 @@ export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
       const isCompleted = debate.status === 'completed';
       const proWon = debate.winner?.id === debate.debater_pro.id;
       const conWon = debate.winner?.id === debate.debater_con.id;
+      const winnerName = debate.winner?.name;
 
       return (
-        <Link href={`/debates/${debate.id}`} className="flex items-center gap-2 min-w-0 flex-1">
-          {isLive && (
-            <span className="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-              LIVE
-            </span>
-          )}
-          {isCompleted && (
-            <span className="flex-shrink-0 text-green-600 font-medium">Done</span>
-          )}
-          <span className="truncate text-gray-700">
-            <span className={proWon ? 'text-green-700 font-medium' : ''}>{debate.debater_pro.name}</span>
-            <span className="text-gray-400 mx-1">vs</span>
-            <span className={conWon ? 'text-green-700 font-medium' : ''}>{debate.debater_con.name}</span>
-          </span>
+        <Link href={`/debates/${debate.id}`} className="flex flex-col gap-0.5 min-w-0 flex-1">
+          {/* Topic row */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {isLive && (
+              <span className="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                LIVE
+              </span>
+            )}
+            <span className="truncate text-gray-800 font-medium">{debate.topic.title}</span>
+          </div>
+          {/* Matchup row */}
+          <div className="flex items-center gap-1 text-[11px] text-gray-500">
+            <span className={proWon ? 'text-green-600 font-medium' : ''}>{debate.debater_pro.name}</span>
+            <span className="text-gray-300">vs</span>
+            <span className={conWon ? 'text-green-600 font-medium' : ''}>{debate.debater_con.name}</span>
+            {isCompleted && winnerName && (
+              <>
+                <span className="text-gray-300 mx-0.5">·</span>
+                <span className="text-green-600 font-medium">{winnerName} wins</span>
+              </>
+            )}
+          </div>
         </Link>
       );
     }
