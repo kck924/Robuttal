@@ -134,7 +134,7 @@ function TopTopicsCard({ topics }: { topics: Topic[] }) {
   return (
     <div className="card">
       <div className="card-header flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">Top Topics</h3>
+        <h3 className="font-semibold text-gray-900">Top Undebated Topics</h3>
         <Link
           href="/topics"
           className="text-xs text-primary-600 hover:underline"
