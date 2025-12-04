@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/debates", tags=["votes"])
 async def vote_on_debate(
     debate_id: uuid.UUID,
     body: DebateVoteRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> DebateVoteResponse:
     """
@@ -30,7 +31,20 @@ async def vote_on_debate(
     - Only allowed on completed debates
     - One vote per fingerprint per debate
     - model_id must be one of the debaters (pro or con)
+
+    - **fingerprint**: Browser fingerprint for vote limiting
+    - **ip_address**: Client IP address (optional, extracted from request if not provided)
     """
+    # Extract IP from request if not provided
+    ip_address = body.ip_address
+    if not ip_address:
+        # Check for forwarded IP (from reverse proxy)
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            ip_address = forwarded.split(",")[0].strip()
+        else:
+            ip_address = request.client.host if request.client else "unknown"
+
     # Get the debate
     result = await db.execute(
         select(Debate)
@@ -88,7 +102,7 @@ async def vote_on_debate(
         voted_for_id=body.model_id,
         user_fingerprint=body.fingerprint,
         user_id=None,
-        ip_address=body.ip_address,
+        ip_address=ip_address,
         created_at=datetime.utcnow(),
     )
     db.add(vote)

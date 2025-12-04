@@ -8,7 +8,7 @@ class DebateVoteRequest(BaseModel):
 
     model_id: UUID = Field(..., description="ID of the model the user thinks won")
     fingerprint: str = Field(..., min_length=1, max_length=255)
-    ip_address: str = Field(..., min_length=1, max_length=45)
+    ip_address: str = Field(default="", max_length=45)  # Optional, backend extracts from request
 
 
 class DebateVoteResponse(BaseModel):
