@@ -359,6 +359,23 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
         judge_name = judge.name
         auditor_name = auditor.name
 
+        # Tweet announcement when debate starts (only on first attempt, not restarts)
+        if attempt == 0:
+            try:
+                from app.services.twitter import announce_debate
+
+                await announce_debate(
+                    debate_id=debate.id,
+                    topic_title=topic.title,
+                    pro_model_name=debater_pro.name,
+                    pro_elo=debater_pro.elo_rating,
+                    con_model_name=debater_con.name,
+                    con_elo=debater_con.elo_rating,
+                )
+            except Exception as twitter_error:
+                # Don't let Twitter failures affect the debate
+                logger.warning(f"Failed to tweet debate announcement: {twitter_error}")
+
         try:
             # 1. Run debate (opening, rebuttal, cross-exam, closing)
             orchestrator = DebateOrchestrator(db, debate.id)

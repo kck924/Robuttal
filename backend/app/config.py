@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     debug: bool = False
     topic_selection_mode: str = "hybrid"  # 'hybrid' | 'user_only' | 'backlog_only'
 
+    # Twitter/X API credentials for automated posting
+    twitter_enabled: bool = False  # Set to True to enable posting
+    twitter_api_key: str = ""  # Also known as Consumer Key
+    twitter_api_secret: str = ""  # Also known as Consumer Secret
+    twitter_access_token: str = ""
+    twitter_access_token_secret: str = ""
+    twitter_bearer_token: str = ""  # Optional, for read-only operations
+
     @property
     def cors_origins(self) -> List[str]:
         """Parse allowed origins from comma-separated string."""
