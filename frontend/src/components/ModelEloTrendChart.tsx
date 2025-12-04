@@ -236,15 +236,15 @@ export default function ModelEloTrendChart({
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine
                 y={eloTrend.starting_elo}
-                stroke="#d1d5db"
+                stroke="#6b7280"
                 strokeDasharray="5 5"
               >
                 <Label
                   value="1500 neutral"
-                  position="insideLeft"
-                  offset={10}
-                  fill="#9ca3af"
+                  position="insideTop"
+                  fill="#6b7280"
                   fontSize={11}
+                  dy={-8}
                 />
               </ReferenceLine>
               <Line
