@@ -238,15 +238,14 @@ export default function ModelEloTrendChart({
                 y={eloTrend.starting_elo}
                 stroke="#6b7280"
                 strokeDasharray="5 5"
-              >
-                <Label
-                  value="1500 neutral"
-                  position="insideTop"
-                  fill="#6b7280"
-                  fontSize={11}
-                  dy={-8}
-                />
-              </ReferenceLine>
+                label={{
+                  value: '1500 neutral',
+                  position: 'insideBottomRight',
+                  fill: '#6b7280',
+                  fontSize: 11,
+                  offset: 15,
+                }}
+              />
               <Line
                 type="monotone"
                 dataKey="elo"
