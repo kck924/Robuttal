@@ -421,6 +421,10 @@ def _debate_to_list_item(debate: Debate) -> DebateListItem:
 
 async def _debate_to_detail(debate: Debate, db: AsyncSession) -> DebateDetail:
     """Convert a Debate model to a DebateDetail schema with computed fields."""
+    import asyncio
+    import logging
+    logger = logging.getLogger(__name__)
+
     # Build transcript with speaker names
     transcript = []
     for entry in sorted(debate.transcript_entries, key=lambda e: e.sequence_order):
@@ -469,10 +473,6 @@ async def _debate_to_detail(debate: Debate, db: AsyncSession) -> DebateDetail:
         elif entry.position == DebatePosition.CON:
             con_word_count += words
 
-    # Get Elo history for both debaters (last 5 debates before this one)
-    pro_elo_history = await _get_elo_history(db, debate.debater_pro_id, debate.id)
-    con_elo_history = await _get_elo_history(db, debate.debater_con_id, debate.id)
-
     # Extract content filter excuses from analysis_metadata
     content_filter_excuses: list[ContentFilterExcuseInfo] = []
     if debate.analysis_metadata and "content_filter_excuses" in debate.analysis_metadata:
@@ -488,29 +488,72 @@ async def _debate_to_detail(debate: Debate, db: AsyncSession) -> DebateDetail:
             )
     has_substitutions = len(content_filter_excuses) > 0
 
-    # Get judge score context if we have a judge score
+    # Run all context queries in parallel for performance
+    # Initialize defaults
+    pro_elo_history: list[int] = []
+    con_elo_history: list[int] = []
     judge_score_context = None
-    if debate.judge_score is not None:
-        judge_score_context = await _get_judge_score_context(
-            db,
-            debate.judge_score,
-            debate.judge_id,
-            debate.auditor_id,
-            debate.id,
+    debate_score_context = None
+
+    try:
+        # Build list of async tasks to run in parallel
+        tasks = []
+        task_names = []
+
+        # Always get Elo history
+        tasks.append(_get_elo_history(db, debate.debater_pro_id, debate.id))
+        task_names.append("pro_elo")
+        tasks.append(_get_elo_history(db, debate.debater_con_id, debate.id))
+        task_names.append("con_elo")
+
+        # Conditionally add context queries
+        if debate.judge_score is not None:
+            tasks.append(_get_judge_score_context(
+                db,
+                debate.judge_score,
+                debate.judge_id,
+                debate.auditor_id,
+                debate.id,
+            ))
+            task_names.append("judge_context")
+
+        if debate.pro_score is not None and debate.con_score is not None:
+            tasks.append(_get_debate_score_context(
+                db,
+                debate.pro_score,
+                debate.con_score,
+                debate.debater_pro_id,
+                debate.debater_con_id,
+                debate.judge_id,
+                debate.id,
+            ))
+            task_names.append("debate_context")
+
+        # Run all tasks in parallel with a timeout
+        results = await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True),
+            timeout=10.0  # 10 second timeout for all context queries
         )
 
-    # Get debate score context if we have debate scores
-    debate_score_context = None
-    if debate.pro_score is not None and debate.con_score is not None:
-        debate_score_context = await _get_debate_score_context(
-            db,
-            debate.pro_score,
-            debate.con_score,
-            debate.debater_pro_id,
-            debate.debater_con_id,
-            debate.judge_id,
-            debate.id,
-        )
+        # Process results
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.warning(f"Context query {task_names[i]} failed: {result}")
+                continue
+
+            if task_names[i] == "pro_elo":
+                pro_elo_history = result
+            elif task_names[i] == "con_elo":
+                con_elo_history = result
+            elif task_names[i] == "judge_context":
+                judge_score_context = result
+            elif task_names[i] == "debate_context":
+                debate_score_context = result
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Context queries timed out for debate {debate.id}")
+    except Exception as e:
+        logger.warning(f"Error fetching context for debate {debate.id}: {e}")
 
     return DebateDetail(
         id=debate.id,
