@@ -40,7 +40,8 @@ MATCHUP_COOLDOWN_DAYS = 7
 MAX_CONTENT_FILTER_RESTARTS = 3
 
 # How long a debate can be stuck in "judging" before auto-retry (minutes)
-STUCK_DEBATE_THRESHOLD_MINUTES = 15
+# Set to 5 minutes so watchdog catches stuck debates quickly after each scheduled debate
+STUCK_DEBATE_THRESHOLD_MINUTES = 5
 
 # Maximum recovery attempts per stuck debate in a single watchdog run
 MAX_WATCHDOG_RECOVERY_ATTEMPTS = 2
@@ -64,14 +65,26 @@ class DebateScheduler:
             )
             logger.info(f"Scheduled debate at {hour:02d}:{minute:02d} UTC")
 
-        # Add watchdog job to auto-complete stuck debates every 10 minutes
+            # Schedule watchdog 5 minutes after each debate
+            # This catches stuck debates quickly rather than waiting for the next 10-min check
+            watchdog_minute = (minute + 5) % 60
+            watchdog_hour = hour if minute + 5 < 60 else (hour + 1) % 24
+            self.scheduler.add_job(
+                self._cleanup_stuck_debates,
+                CronTrigger(hour=watchdog_hour, minute=watchdog_minute, timezone="UTC"),
+                id=f"watchdog_{hour:02d}_{minute:02d}",
+                replace_existing=True,
+            )
+            logger.info(f"Scheduled watchdog at {watchdog_hour:02d}:{watchdog_minute:02d} UTC (5 min after debate)")
+
+        # Also keep the every-10-minute watchdog as a safety net
         self.scheduler.add_job(
             self._cleanup_stuck_debates,
             CronTrigger(minute="*/10", timezone="UTC"),
             id="cleanup_stuck_debates",
             replace_existing=True,
         )
-        logger.info("Scheduled stuck debate cleanup every 10 minutes")
+        logger.info("Scheduled stuck debate cleanup every 10 minutes (safety net)")
 
         self.scheduler.start()
         logger.info("Debate scheduler started")
