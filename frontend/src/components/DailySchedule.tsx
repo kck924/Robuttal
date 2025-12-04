@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DailyScheduleResponse, ScheduledDebateItem, UpcomingSlot } from '@/lib/api';
 import { generateSlug } from '@/lib/api';
@@ -174,29 +175,133 @@ function ScheduleItem({ debate, index }: { debate: ScheduledDebateItem; index: n
   );
 }
 
-// Compact mobile banner version of the schedule
+// Build display items for the carousel: summary + individual debates/slots
+type CarouselItem =
+  | { type: 'summary' }
+  | { type: 'debate'; debate: ScheduledDebateItem }
+  | { type: 'upcoming'; slot: UpcomingSlot };
+
+// Compact mobile banner version of the schedule with cycling content
 export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
   const hasLive = schedule.in_progress_count > 0;
   const remaining = schedule.total_scheduled - schedule.completed_count - schedule.in_progress_count;
+
+  // Build carousel items: summary first, then debates, then upcoming slots
+  const items: CarouselItem[] = [
+    { type: 'summary' },
+    ...schedule.debates.map((debate) => ({ type: 'debate' as const, debate })),
+    ...(schedule.upcoming_slots?.map((slot) => ({ type: 'upcoming' as const, slot })) || []),
+  ];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Cycle through items every 4 seconds
+  useEffect(() => {
+    if (items.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % items.length);
+        setIsAnimating(false);
+      }, 150); // fade out duration
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [items.length]);
+
+  const currentItem = items[currentIndex];
+
+  // Render the current carousel item content
+  const renderContent = () => {
+    if (currentItem.type === 'summary') {
+      return (
+        <div className="flex items-center gap-2">
+          {hasLive && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              {schedule.in_progress_count} Live
+            </span>
+          )}
+          <span className="text-green-600 font-medium">{schedule.completed_count} done</span>
+          <span className="text-gray-400">{remaining} left</span>
+        </div>
+      );
+    }
+
+    if (currentItem.type === 'debate') {
+      const debate = currentItem.debate;
+      const isLive = debate.status === 'in_progress';
+      const isCompleted = debate.status === 'completed';
+      const proWon = debate.winner?.id === debate.debater_pro.id;
+      const conWon = debate.winner?.id === debate.debater_con.id;
+
+      return (
+        <Link href={`/debates/${debate.id}`} className="flex items-center gap-2 min-w-0 flex-1">
+          {isLive && (
+            <span className="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              LIVE
+            </span>
+          )}
+          {isCompleted && (
+            <span className="flex-shrink-0 text-green-600 font-medium">Done</span>
+          )}
+          <span className="truncate text-gray-700">
+            <span className={proWon ? 'text-green-700 font-medium' : ''}>{debate.debater_pro.name}</span>
+            <span className="text-gray-400 mx-1">vs</span>
+            <span className={conWon ? 'text-green-700 font-medium' : ''}>{debate.debater_con.name}</span>
+          </span>
+        </Link>
+      );
+    }
+
+    if (currentItem.type === 'upcoming') {
+      const { time } = formatScheduledTime(currentItem.slot.scheduled_time);
+      return (
+        <div className="flex items-center gap-2 text-gray-500">
+          <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
+            {time}
+          </span>
+          <span className="truncate">Next debate</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="lg:hidden bg-gray-50 border-b border-gray-200 sticky top-16 z-40">
       <div className="container-wide">
         <div className="flex items-center justify-between py-2 text-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-gray-500 font-medium">Today</span>
-            <div className="flex items-center gap-2">
-              {hasLive && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
-                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                  {schedule.in_progress_count} Live
-                </span>
-              )}
-              <span className="text-green-600 font-medium">{schedule.completed_count} done</span>
-              <span className="text-gray-400">{remaining} left</span>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <span className="flex-shrink-0 text-gray-500 font-medium">Today</span>
+            <div className={`min-w-0 flex-1 transition-opacity duration-150 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
+              {renderContent()}
             </div>
           </div>
-          <span className="text-gray-400">{schedule.completed_count}/{schedule.total_scheduled}</span>
+          {/* Dot indicators */}
+          {items.length > 1 && (
+            <div className="flex-shrink-0 flex items-center gap-1 ml-2">
+              {items.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setIsAnimating(true);
+                    setTimeout(() => {
+                      setCurrentIndex(idx);
+                      setIsAnimating(false);
+                    }, 150);
+                  }}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                    idx === currentIndex ? 'bg-gray-600' : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
