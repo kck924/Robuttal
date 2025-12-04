@@ -10,8 +10,12 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    // Rewrites only work in local development (localhost)
-    // In production, NEXT_PUBLIC_API_URL should be set to point directly to the backend
+    // Only apply rewrites in local development
+    // In production, NEXT_PUBLIC_API_URL points directly to the backend
+    if (process.env.NODE_ENV === 'production') {
+      return [];
+    }
+
     return [
       {
         // Proxy backend API calls, but NOT NextAuth routes
