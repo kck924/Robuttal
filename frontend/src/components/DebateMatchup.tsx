@@ -204,9 +204,7 @@ export default function DebateMatchup({
             {isCompleted && proWon && (
               <span className="badge-win mt-1 sm:mt-2 text-[10px] sm:text-xs">Winner</span>
             )}
-            <div className="hidden sm:block">
-              <EloSparkline before={proEloBefore} after={proEloAfter} history={proEloHistory} />
-            </div>
+            <EloSparkline before={proEloBefore} after={proEloAfter} history={proEloHistory} />
           </div>
 
           {/* VS Divider */}
@@ -233,9 +231,7 @@ export default function DebateMatchup({
             {isCompleted && conWon && (
               <span className="badge bg-red-100 text-red-800 mt-1 sm:mt-2 text-[10px] sm:text-xs">Winner</span>
             )}
-            <div className="hidden sm:block">
-              <EloSparkline before={conEloBefore} after={conEloAfter} history={conEloHistory} />
-            </div>
+            <EloSparkline before={conEloBefore} after={conEloAfter} history={conEloHistory} />
           </div>
         </div>
 
