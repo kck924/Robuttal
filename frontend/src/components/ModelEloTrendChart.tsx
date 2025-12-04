@@ -46,6 +46,7 @@ export default function ModelEloTrendChart({
         result: 'start',
         opponent_name: '',
         debate_id: '',
+        completed_at: null,
       },
       ...eloTrend.data_points,
     ];
@@ -74,6 +75,17 @@ export default function ModelEloTrendChart({
     );
   }
 
+  // Format date helper
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
   // Custom tooltip component
   const CustomTooltip = ({
     active,
@@ -87,6 +99,7 @@ export default function ModelEloTrendChart({
         result: string;
         opponent_name: string;
         debate_id: string;
+        completed_at: string | null;
       };
     }>;
   }) => {
@@ -113,6 +126,9 @@ export default function ModelEloTrendChart({
         <p className="text-sm font-medium text-gray-900 mb-1">
           Debate #{data.debate_number}
         </p>
+        {data.completed_at && (
+          <p className="text-xs text-gray-500 mb-2">{formatDate(data.completed_at)}</p>
+        )}
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">vs</span>
@@ -217,7 +233,7 @@ export default function ModelEloTrendChart({
                 stroke="#d1d5db"
                 strokeDasharray="5 5"
                 label={{
-                  value: 'Starting',
+                  value: '1500 neutral',
                   position: 'right',
                   fill: '#9ca3af',
                   fontSize: 11,

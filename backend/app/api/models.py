@@ -886,6 +886,7 @@ async def _build_elo_trend(
                     result="win" if won else "loss",
                     opponent_name=opponent.name,
                     debate_id=debate.id,
+                    completed_at=debate.completed_at,
                 )
             )
 

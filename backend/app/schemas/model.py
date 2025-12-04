@@ -36,6 +36,7 @@ class EloTrendPoint(BaseModel):
     result: str  # "win" or "loss"
     opponent_name: str
     debate_id: UUID
+    completed_at: datetime | None = None
 
 
 class EloTrendData(BaseModel):

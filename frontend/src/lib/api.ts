@@ -269,6 +269,7 @@ export interface EloTrendPoint {
   result: string;
   opponent_name: string;
   debate_id: string;
+  completed_at: string | null;
 }
 
 export interface EloTrendData {
