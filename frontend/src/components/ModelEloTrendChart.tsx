@@ -11,7 +11,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Label,
 } from 'recharts';
 import type { EloTrendData } from '@/lib/api';
 
@@ -252,13 +251,6 @@ export default function ModelEloTrendChart({
                 y={eloTrend.starting_elo}
                 stroke="#6b7280"
                 strokeDasharray="5 5"
-                label={{
-                  value: '1500 neutral',
-                  position: 'insideBottomRight',
-                  fill: '#6b7280',
-                  fontSize: 11,
-                  offset: 15,
-                }}
               />
               <Line
                 type="monotone"
