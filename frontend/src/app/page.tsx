@@ -5,18 +5,20 @@ import ArenaContent from '@/components/ArenaContent';
 export const revalidate = 10; // Revalidate every 10 seconds
 
 async function getArenaData() {
-  try {
-    // Fetch schedule, live/recent debate, and top topics in parallel
-    const [scheduleResponse, liveResponse, topicsResponse] = await Promise.all([
-      getTodaysSchedule().catch(() => null),
-      getLiveDebate(),
-      getTopics({ status: 'pending', limit: 5 }).catch(() => ({ topics: [], total: 0 })),
-    ]);
+  // Fetch schedule and top topics (these are independent and can fail gracefully)
+  const [scheduleResponse, topicsResponse] = await Promise.all([
+    getTodaysSchedule().catch(() => null),
+    getTopics({ status: 'pending', limit: 5 }).catch(() => ({ topics: [], total: 0 })),
+  ]);
 
-    // Sort topics by vote count descending to get top topics
-    const topTopics = topicsResponse.topics
-      .sort((a, b) => b.vote_count - a.vote_count)
-      .slice(0, 5);
+  // Sort topics by vote count descending to get top topics
+  const topTopics = topicsResponse.topics
+    .sort((a, b) => b.vote_count - a.vote_count)
+    .slice(0, 5);
+
+  // Try to get live debate first
+  try {
+    const liveResponse = await getLiveDebate();
 
     // If there's a live debate, use that
     if (liveResponse.is_live && liveResponse.debate) {
@@ -29,11 +31,15 @@ async function getArenaData() {
         topTopics,
       };
     }
+  } catch (error) {
+    console.error('Failed to fetch live debate:', error);
+    // Continue to fallback
+  }
 
-    // Otherwise get most recent completed debate
+  // Fallback: get most recent completed debate
+  try {
     const debatesResponse = await getDebates({ status: 'completed', limit: 1 });
     if (debatesResponse.debates.length > 0) {
-      const { getDebate } = await import('@/lib/api');
       const debate = await getDebate(debatesResponse.debates[0].id);
       const votes = await getDebateVotes(debate.id).catch(() => null);
       return {
@@ -44,12 +50,11 @@ async function getArenaData() {
         topTopics,
       };
     }
-
-    return { debate: null, isLive: false, votes: null, schedule: scheduleResponse, topTopics };
   } catch (error) {
-    console.error('Failed to fetch arena data:', error);
-    return { debate: null, isLive: false, votes: null, schedule: null, topTopics: [] };
+    console.error('Failed to fetch recent debate:', error);
   }
+
+  return { debate: null, isLive: false, votes: null, schedule: scheduleResponse, topTopics };
 }
 
 export default async function Home() {
