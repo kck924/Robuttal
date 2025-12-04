@@ -178,7 +178,7 @@ export default function ModelEloTrendChart({
         <circle
           cx={cx}
           cy={cy}
-          r={5}
+          r={6}
           fill={lineColor}
           stroke="white"
           strokeWidth={2}
@@ -188,17 +188,29 @@ export default function ModelEloTrendChart({
 
     const isWin = payload.result === 'win';
 
+    // Larger clickable area with visible dot inside
     return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r={6}
-        fill={isWin ? '#22c55e' : '#ef4444'}
-        stroke="white"
-        strokeWidth={2}
+      <g
         style={{ cursor: 'pointer' }}
         onClick={() => router.push(`/debates/${payload.debate_id}`)}
-      />
+      >
+        {/* Invisible larger hit area */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={16}
+          fill="transparent"
+        />
+        {/* Visible dot */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={8}
+          fill={isWin ? '#22c55e' : '#ef4444'}
+          stroke="white"
+          strokeWidth={2}
+        />
+      </g>
     );
   };
 
