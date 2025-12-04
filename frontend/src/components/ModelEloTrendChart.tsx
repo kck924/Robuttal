@@ -48,6 +48,7 @@ export default function ModelEloTrendChart({
         elo: eloTrend.starting_elo,
         result: 'start',
         opponent_name: '',
+        topic_title: '',
         debate_id: '',
         completed_at: null,
       },
@@ -101,6 +102,7 @@ export default function ModelEloTrendChart({
         elo: number;
         result: string;
         opponent_name: string;
+        topic_title: string;
         debate_id: string;
         completed_at: string | null;
       };
@@ -125,9 +127,9 @@ export default function ModelEloTrendChart({
     const isWin = data.result === 'win';
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-        <p className="text-sm font-medium text-gray-900 mb-1">
-          Debate #{data.debate_number}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 max-w-xs">
+        <p className="text-sm font-medium text-gray-900 mb-1 line-clamp-2">
+          {data.topic_title}
         </p>
         {data.completed_at && (
           <p className="text-xs text-gray-500 mb-2">{formatDate(data.completed_at)}</p>

@@ -852,6 +852,7 @@ async def _build_elo_trend(
         .options(
             selectinload(Debate.debater_pro),
             selectinload(Debate.debater_con),
+            selectinload(Debate.topic),
         )
         .where(
             Debate.status == DebateStatus.COMPLETED,
@@ -885,6 +886,7 @@ async def _build_elo_trend(
                     elo=elo_after,
                     result="win" if won else "loss",
                     opponent_name=opponent.name,
+                    topic_title=debate.topic.title,
                     debate_id=debate.id,
                     completed_at=debate.completed_at,
                 )
