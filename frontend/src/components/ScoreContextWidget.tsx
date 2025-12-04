@@ -100,21 +100,16 @@ function ScoreDotPlot({
           />
         ))}
 
-        {/* Historical average marker - prominent vertical line */}
+        {/* Historical average marker - solid vertical line */}
         {historicalAvg !== null && (
           <div
             className="absolute top-0 bottom-0 group z-5"
             style={{ left: `${scoreToPercent(historicalAvg)}%` }}
           >
-            {/* Marker line */}
+            {/* Solid vertical line */}
             <div
               className="absolute top-0 bottom-0 w-0.5 -ml-px"
-              style={{ backgroundColor: color, opacity: 0.4 }}
-            />
-            {/* Diamond marker */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-2 h-2 -ml-1 rotate-45 border-2"
-              style={{ borderColor: color, backgroundColor: 'white' }}
+              style={{ backgroundColor: color, opacity: 0.6 }}
             />
             {/* Tooltip */}
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -159,8 +154,8 @@ function ScoreDotPlot({
         {historicalAvg !== null && (
           <span className="flex items-center gap-1">
             <span
-              className="w-2 h-2 rotate-45 border"
-              style={{ borderColor: color, backgroundColor: 'white' }}
+              className="w-0.5 h-3 rounded-full"
+              style={{ backgroundColor: color, opacity: 0.6 }}
             />
             Model avg
           </span>
