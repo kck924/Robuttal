@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getLiveDebate, getDebates, getDebateVotes, getTodaysSchedule, getTopics, DailyScheduleResponse, Topic } from '@/lib/api';
+import { getLiveDebate, getDebate, getDebates, getDebateVotes, getTodaysSchedule, getTopics, DailyScheduleResponse, Topic } from '@/lib/api';
 import ArenaContent from '@/components/ArenaContent';
 
 export const revalidate = 10; // Revalidate every 10 seconds
