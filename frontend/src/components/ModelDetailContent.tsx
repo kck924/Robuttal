@@ -560,7 +560,7 @@ export default function ModelDetailContent({ model }: ModelDetailContentProps) {
         <ol className="flex items-center gap-2 text-gray-500">
           <li>
             <Link href="/standings" className="hover:text-primary-600">
-              Standings
+              Models
             </Link>
           </li>
           <li>/</li>
