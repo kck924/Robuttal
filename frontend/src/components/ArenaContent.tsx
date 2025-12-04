@@ -7,6 +7,7 @@ import { formatRelativeTime, MAIN_DEBATE_PHASES } from '@/lib/utils';
 import DebateMatchup from './DebateMatchup';
 import DailySchedule from './DailySchedule';
 import JudgeScoreComparison from './JudgeScoreComparison';
+import ScoreContextWidget from './ScoreContextWidget';
 import TranscriptViewer from './TranscriptViewer';
 import VoteSection from './VoteSection';
 import { useToastActions } from './Toast';
@@ -309,9 +310,16 @@ export default function ArenaContent({ debate, isLive, votes, schedule, topTopic
 
         {/* Sidebar - 1 column */}
         <div className="flex flex-col gap-6">
-          {/* Judge Quality Card - First on mobile, after schedule on desktop */}
+          {/* Score Context Widget - Show when debate has scores */}
+          {debate.status === 'completed' && debate.pro_score !== null && debate.con_score !== null && (
+            <div className="order-first lg:order-4">
+              <ScoreContextWidget debate={debate} />
+            </div>
+          )}
+
+          {/* Judge Quality Card */}
           {debate.status === 'completed' && debate.judge_score && (
-            <div className="card order-first lg:order-4">
+            <div className="card order-2 lg:order-5">
               <div className="card-header">
                 <h3 className="font-semibold text-gray-900">Judge Quality</h3>
               </div>

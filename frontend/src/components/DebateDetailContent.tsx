@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { DebateDetail, VoteTally, voteOnDebate, generateSlug } from '@/lib/api';
 import { useToastActions } from './Toast';
 import { trackDebateView, trackDebateShare, trackDebateVote, trackCopyToClipboard, trackError } from '@/lib/analytics';
-import ScoreContextWidget from './ScoreContextWidget';
 
 // Social share button component
 function ShareButtons({ debate }: { debate: DebateDetail }) {
@@ -1135,11 +1134,6 @@ export default function DebateDetailContent({
               <div className="text-[10px] sm:text-xs text-gray-500">Agree w/ Judge</div>
             </div>
           </div>
-        </div>
-
-        {/* Score Context Widget - sidebar on large screens */}
-        <div className="lg:col-span-1">
-          <ScoreContextWidget debate={debate} />
         </div>
       </div>
 
