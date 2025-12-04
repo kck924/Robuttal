@@ -16,6 +16,7 @@ from app.schemas.debate import (
     DebateDetail,
     DebateListItem,
     DebateListResponse,
+    DebateScoreContext,
     JudgeScoreContext,
     LiveDebateResponse,
     ModelSummary,
@@ -498,6 +499,19 @@ async def _debate_to_detail(debate: Debate, db: AsyncSession) -> DebateDetail:
             debate.id,
         )
 
+    # Get debate score context if we have debate scores
+    debate_score_context = None
+    if debate.pro_score is not None and debate.con_score is not None:
+        debate_score_context = await _get_debate_score_context(
+            db,
+            debate.pro_score,
+            debate.con_score,
+            debate.debater_pro_id,
+            debate.debater_con_id,
+            debate.judge_id,
+            debate.id,
+        )
+
     return DebateDetail(
         id=debate.id,
         topic=TopicSummary(
@@ -559,6 +573,7 @@ async def _debate_to_detail(debate: Debate, db: AsyncSession) -> DebateDetail:
         has_substitutions=has_substitutions,
         content_filter_excuses=content_filter_excuses,
         judge_score_context=judge_score_context,
+        debate_score_context=debate_score_context,
         is_blinded=debate.is_blinded,
     )
 
@@ -657,4 +672,125 @@ async def _get_judge_score_context(
         site_total_debates=site_total_debates,
         auditor_avg=auditor_avg,
         auditor_debates_audited=auditor_debates_audited,
+    )
+
+
+async def _get_debate_score_context(
+    db: AsyncSession,
+    pro_score: int,
+    con_score: int,
+    pro_model_id: UUID,
+    con_model_id: UUID,
+    judge_id: UUID,
+    current_debate_id: UUID,
+) -> DebateScoreContext:
+    """
+    Get context for comparing debate scores to historical averages.
+    """
+    # 1. Pro model's historical average score (across all their debates as debater)
+    pro_avg_query = select(
+        func.avg(
+            func.coalesce(
+                # When pro in this debate, use pro_score
+                func.nullif(
+                    func.case(
+                        (Debate.debater_pro_id == pro_model_id, Debate.pro_score),
+                        else_=None,
+                    ),
+                    None,
+                ),
+                # When con in this debate, use con_score
+                func.nullif(
+                    func.case(
+                        (Debate.debater_con_id == pro_model_id, Debate.con_score),
+                        else_=None,
+                    ),
+                    None,
+                ),
+            )
+        ),
+        func.count(Debate.id),
+    ).where(
+        Debate.status == DebateStatus.COMPLETED,
+        (Debate.debater_pro_id == pro_model_id) | (Debate.debater_con_id == pro_model_id),
+        Debate.pro_score.isnot(None),
+        Debate.con_score.isnot(None),
+    )
+    pro_result = await db.execute(pro_avg_query)
+    pro_row = pro_result.one()
+    pro_model_avg = float(pro_row[0]) if pro_row[0] is not None else None
+    pro_model_debates = pro_row[1] or 0
+
+    # 2. Con model's historical average score (across all their debates as debater)
+    con_avg_query = select(
+        func.avg(
+            func.coalesce(
+                func.nullif(
+                    func.case(
+                        (Debate.debater_pro_id == con_model_id, Debate.pro_score),
+                        else_=None,
+                    ),
+                    None,
+                ),
+                func.nullif(
+                    func.case(
+                        (Debate.debater_con_id == con_model_id, Debate.con_score),
+                        else_=None,
+                    ),
+                    None,
+                ),
+            )
+        ),
+        func.count(Debate.id),
+    ).where(
+        Debate.status == DebateStatus.COMPLETED,
+        (Debate.debater_pro_id == con_model_id) | (Debate.debater_con_id == con_model_id),
+        Debate.pro_score.isnot(None),
+        Debate.con_score.isnot(None),
+    )
+    con_result = await db.execute(con_avg_query)
+    con_row = con_result.one()
+    con_model_avg = float(con_row[0]) if con_row[0] is not None else None
+    con_model_debates = con_row[1] or 0
+
+    # 3. Site-wide average debate score (average of all pro and con scores)
+    site_avg_query = select(
+        func.avg((Debate.pro_score + Debate.con_score) / 2.0),
+        func.count(Debate.id),
+    ).where(
+        Debate.status == DebateStatus.COMPLETED,
+        Debate.pro_score.isnot(None),
+        Debate.con_score.isnot(None),
+    )
+    site_result = await db.execute(site_avg_query)
+    site_row = site_result.one()
+    site_avg_score = float(site_row[0]) if site_row[0] is not None else None
+    site_total_debates = site_row[1] or 0
+
+    # 4. Judge's historical average score given (average of scores they've given)
+    judge_avg_query = select(
+        func.avg((Debate.pro_score + Debate.con_score) / 2.0),
+        func.count(Debate.id),
+    ).where(
+        Debate.status == DebateStatus.COMPLETED,
+        Debate.judge_id == judge_id,
+        Debate.pro_score.isnot(None),
+        Debate.con_score.isnot(None),
+    )
+    judge_result = await db.execute(judge_avg_query)
+    judge_row = judge_result.one()
+    judge_avg_given = float(judge_row[0]) if judge_row[0] is not None else None
+    judge_debates_judged = judge_row[1] or 0
+
+    return DebateScoreContext(
+        pro_score=pro_score,
+        con_score=con_score,
+        pro_model_avg=pro_model_avg,
+        pro_model_debates=pro_model_debates,
+        con_model_avg=con_model_avg,
+        con_model_debates=con_model_debates,
+        site_avg_score=site_avg_score,
+        site_total_debates=site_total_debates,
+        judge_avg_given=judge_avg_given,
+        judge_debates_judged=judge_debates_judged,
     )

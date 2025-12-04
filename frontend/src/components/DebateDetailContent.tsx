@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { DebateDetail, VoteTally, voteOnDebate, generateSlug } from '@/lib/api';
 import { useToastActions } from './Toast';
 import { trackDebateView, trackDebateShare, trackDebateVote, trackCopyToClipboard, trackError } from '@/lib/analytics';
+import ScoreContextWidget from './ScoreContextWidget';
 
 // Social share button component
 function ShareButtons({ debate }: { debate: DebateDetail }) {
@@ -1112,25 +1113,33 @@ export default function DebateDetailContent({
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-6 sm:mb-8">
-        <div className="card">
-          <div className="card-body py-3 sm:py-4 text-center">
-            <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
-              {debate.judge_score !== null ? debate.judge_score.toFixed(1) : '—'}
+      {/* Stats and Score Context Widget */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        {/* Stats - takes 2 columns on large screens */}
+        <div className="lg:col-span-2 grid grid-cols-2 gap-2 sm:gap-4">
+          <div className="card">
+            <div className="card-body py-3 sm:py-4 text-center">
+              <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
+                {debate.judge_score !== null ? debate.judge_score.toFixed(1) : '—'}
+              </div>
+              <div className="text-[10px] sm:text-xs text-gray-500">Judge Score</div>
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-500">Judge Score</div>
+          </div>
+          <div className="card">
+            <div className="card-body py-3 sm:py-4 text-center">
+              <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
+                {votes?.agreement_with_judge !== null && votes?.agreement_with_judge !== undefined
+                  ? `${votes.agreement_with_judge.toFixed(0)}%`
+                  : '—'}
+              </div>
+              <div className="text-[10px] sm:text-xs text-gray-500">Agree w/ Judge</div>
+            </div>
           </div>
         </div>
-        <div className="card">
-          <div className="card-body py-3 sm:py-4 text-center">
-            <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
-              {votes?.agreement_with_judge !== null && votes?.agreement_with_judge !== undefined
-                ? `${votes.agreement_with_judge.toFixed(0)}%`
-                : '—'}
-            </div>
-            <div className="text-[10px] sm:text-xs text-gray-500">Agree w/ Judge</div>
-          </div>
+
+        {/* Score Context Widget - sidebar on large screens */}
+        <div className="lg:col-span-1">
+          <ScoreContextWidget debate={debate} />
         </div>
       </div>
 

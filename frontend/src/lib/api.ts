@@ -91,6 +91,19 @@ export interface JudgeScoreContext {
   auditor_debates_audited: number;
 }
 
+export interface DebateScoreContext {
+  pro_score: number;
+  con_score: number;
+  pro_model_avg: number | null;
+  pro_model_debates: number;
+  con_model_avg: number | null;
+  con_model_debates: number;
+  site_avg_score: number | null;
+  site_total_debates: number;
+  judge_avg_given: number | null;
+  judge_debates_judged: number;
+}
+
 export interface DebateDetail extends DebateListItem {
   auditor: ModelSummary;
   judge_score: number | null;
@@ -105,6 +118,8 @@ export interface DebateDetail extends DebateListItem {
   con_elo_history: number[];
   // Judge score context for comparison visualization
   judge_score_context: JudgeScoreContext | null;
+  // Debate score context for comparison visualization
+  debate_score_context: DebateScoreContext | null;
 }
 
 export interface DebateListResponse {

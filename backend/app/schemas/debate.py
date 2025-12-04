@@ -117,6 +117,9 @@ class DebateDetail(BaseModel):
     # Judge score context for comparison visualization
     judge_score_context: "JudgeScoreContext | None" = None
 
+    # Debate score context for comparison visualization
+    debate_score_context: "DebateScoreContext | None" = None
+
 
 class JudgeScoreContext(BaseModel):
     """Context for comparing the judge's score to historical averages."""
@@ -128,6 +131,21 @@ class JudgeScoreContext(BaseModel):
     site_total_debates: int  # Total debates with judge scores
     auditor_avg: float | None  # This auditor's historical average score given
     auditor_debates_audited: int  # Number of debates this auditor has audited
+
+
+class DebateScoreContext(BaseModel):
+    """Context for comparing debate scores to historical averages."""
+
+    pro_score: int  # This debate's pro score
+    con_score: int  # This debate's con score
+    pro_model_avg: float | None  # Pro model's historical average score (across all debates)
+    pro_model_debates: int  # Number of debates pro model has participated in
+    con_model_avg: float | None  # Con model's historical average score (across all debates)
+    con_model_debates: int  # Number of debates con model has participated in
+    site_avg_score: float | None  # Site-wide average debate score
+    site_total_debates: int  # Total debates with scores
+    judge_avg_given: float | None  # This judge's historical average score given
+    judge_debates_judged: int  # Number of debates this judge has judged
 
 
 class DebateListResponse(BaseModel):
