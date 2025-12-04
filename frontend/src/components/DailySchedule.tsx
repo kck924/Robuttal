@@ -217,15 +217,26 @@ export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
   const renderContent = () => {
     if (currentItem.type === 'summary') {
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {hasLive && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-              {schedule.in_progress_count} Live
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-red-600 font-semibold">{schedule.in_progress_count} Live</span>
+            </div>
           )}
-          <span className="text-green-600 font-medium">{schedule.completed_count} done</span>
-          <span className="text-gray-400">{remaining} left</span>
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="text-green-600 font-medium">{schedule.completed_count}</span>
+          </div>
+          <span className="text-gray-300">|</span>
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-gray-500">{remaining} left</span>
+          </div>
         </div>
       );
     }
@@ -236,44 +247,52 @@ export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
       const isCompleted = debate.status === 'completed';
       const proWon = debate.winner?.id === debate.debater_pro.id;
       const conWon = debate.winner?.id === debate.debater_con.id;
-      const winnerName = debate.winner?.name;
 
       return (
-        <Link href={`/debates/${debate.id}`} className="flex flex-col gap-0.5 min-w-0 flex-1">
-          {/* Topic row */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            {isLive && (
-              <span className="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                LIVE
-              </span>
+        <Link href={`/debates/${debate.id}`} className="flex items-start gap-2.5 min-w-0 flex-1">
+          {/* Status indicator */}
+          <div className="flex-shrink-0 mt-0.5">
+            {isLive ? (
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse block" />
+            ) : isCompleted ? (
+              <svg className="w-3.5 h-3.5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <span className="w-2 h-2 bg-gray-300 rounded-full block" />
             )}
-            <span className="truncate text-gray-800 font-medium">{debate.topic.title}</span>
           </div>
-          {/* Matchup row */}
-          <div className="flex items-center gap-1 text-[11px] text-gray-500">
-            <span className={proWon ? 'text-green-600 font-medium' : ''}>{debate.debater_pro.name}</span>
-            <span className="text-gray-300">vs</span>
-            <span className={conWon ? 'text-green-600 font-medium' : ''}>{debate.debater_con.name}</span>
-            {isCompleted && winnerName && (
-              <>
-                <span className="text-gray-300 mx-0.5">·</span>
-                <span className="text-green-600 font-medium">{winnerName} wins</span>
-              </>
-            )}
+          {/* Content */}
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            {/* Topic row */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              {isLive && (
+                <span className="flex-shrink-0 text-[10px] font-bold text-red-600 uppercase tracking-wide">Live</span>
+              )}
+              <span className={`truncate font-medium ${isLive ? 'text-gray-900' : isCompleted ? 'text-gray-700' : 'text-gray-600'}`}>
+                {debate.topic.title}
+              </span>
+            </div>
+            {/* Matchup row */}
+            <div className="flex items-center gap-1 text-[11px] text-gray-400">
+              <span className={proWon ? 'text-green-600 font-semibold' : 'text-gray-500'}>{debate.debater_pro.name}</span>
+              <span className="text-gray-300">vs</span>
+              <span className={conWon ? 'text-green-600 font-semibold' : 'text-gray-500'}>{debate.debater_con.name}</span>
+            </div>
           </div>
         </Link>
       );
     }
 
     if (currentItem.type === 'upcoming') {
-      const { time } = formatScheduledTime(currentItem.slot.scheduled_time);
+      const { time, relative } = formatScheduledTime(currentItem.slot.scheduled_time);
       return (
-        <div className="flex items-center gap-2 text-gray-500">
-          <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
-            {time}
-          </span>
-          <span className="truncate">Next debate</span>
+        <div className="flex items-center gap-2.5 text-gray-500">
+          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-gray-600 font-medium">{time}</span>
+          <span className="text-gray-400">({relative})</span>
         </div>
       );
     }
@@ -282,18 +301,23 @@ export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
   };
 
   return (
-    <div className="lg:hidden bg-gray-50 border-b border-gray-200 sticky top-16 z-40">
+    <div className="lg:hidden bg-white border-b border-gray-200 sticky top-16 z-40 shadow-sm">
       <div className="container-wide">
-        <div className="flex items-center justify-between py-2 text-xs">
+        <div className="flex items-center justify-between py-2.5 text-xs">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <span className="flex-shrink-0 text-gray-500 font-medium">Today</span>
+            <div className="flex-shrink-0 flex items-center gap-1.5 pr-3 border-r border-gray-200">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-gray-600 font-semibold">Today</span>
+            </div>
             <div className={`min-w-0 flex-1 transition-opacity duration-150 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
               {renderContent()}
             </div>
           </div>
           {/* Dot indicators */}
           {items.length > 1 && (
-            <div className="flex-shrink-0 flex items-center gap-1 ml-2">
+            <div className="flex-shrink-0 flex items-center gap-1.5 ml-3 pl-3 border-l border-gray-200">
               {items.map((_, idx) => (
                 <button
                   key={idx}
@@ -304,9 +328,10 @@ export function MobileScheduleBanner({ schedule }: DailyScheduleProps) {
                       setIsAnimating(false);
                     }, 150);
                   }}
-                  className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                    idx === currentIndex ? 'bg-gray-600' : 'bg-gray-300'
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    idx === currentIndex ? 'bg-primary-600 scale-110' : 'bg-gray-300 hover:bg-gray-400'
                   }`}
+                  aria-label={`Go to item ${idx + 1}`}
                 />
               ))}
             </div>
