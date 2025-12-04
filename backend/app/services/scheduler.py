@@ -119,14 +119,14 @@ class DebateScheduler:
         logger.info("Running stuck debate cleanup check")
         try:
             async with async_session_maker() as db:
-                # Find debates stuck in judging status
+                # Find debates stuck in judging OR in_progress status
                 cutoff_time = datetime.utcnow() - timedelta(minutes=STUCK_DEBATE_THRESHOLD_MINUTES)
 
                 # Use scheduled_at as fallback since started_at may not be set
                 result = await db.execute(
                     select(Debate)
                     .where(
-                        Debate.status == DebateStatus.JUDGING,
+                        Debate.status.in_([DebateStatus.JUDGING, DebateStatus.IN_PROGRESS]),
                         or_(
                             Debate.started_at < cutoff_time,
                             and_(
@@ -155,6 +155,7 @@ class DebateScheduler:
         """
         Attempt to recover a single stuck debate with retry logic.
 
+        - If stuck in_progress, resume the debate phase first
         - If judgment is already complete (has scores), skip to audit
         - If audit times out, switch to a different auditor and retry
         """
@@ -175,6 +176,21 @@ class DebateScheduler:
                 auditor_name = auditor.name if auditor else "Unknown"
 
                 judge_service = JudgeService(db)
+
+                # If stuck in debate phase (in_progress), try to resume/complete the debate
+                if debate.status == DebateStatus.IN_PROGRESS:
+                    logger.info(f"Debate {debate_id} stuck in debate phase, attempting to resume")
+                    orchestrator = DebateOrchestrator(db, debate.id)
+                    try:
+                        await orchestrator.run_debate()
+                        await db.commit()
+                        logger.info(f"Debate phase completed for stuck debate {debate_id}")
+                    except Exception as e:
+                        logger.warning(f"Could not resume debate phase for {debate_id}: {e}")
+                        # If debate phase can't complete, we can still try to judge whatever transcript exists
+                        # Update status to judging so we can proceed
+                        debate.status = DebateStatus.JUDGING
+                        await db.commit()
 
                 # Check if judgment is already complete (has scores)
                 judgment_complete = debate.pro_score is not None and debate.con_score is not None
