@@ -28,6 +28,23 @@ class ModelResponse(BaseModel):
     recent_trend: int | None = None  # Elo change over last 10 debates
 
 
+class EloTrendPoint(BaseModel):
+    """A single point in a model's Elo trend (debate number, elo value, result)."""
+
+    debate_number: int  # 1-indexed debate number for this model
+    elo: int
+    result: str  # "win" or "loss"
+    opponent_name: str
+    debate_id: UUID
+
+
+class EloTrendData(BaseModel):
+    """Full Elo trend data for a model."""
+
+    data_points: list[EloTrendPoint]
+    starting_elo: int = 1500
+
+
 class ModelDetailResponse(BaseModel):
     """Model detail with recent debate history."""
 
@@ -53,6 +70,7 @@ class ModelDetailResponse(BaseModel):
     scoring_stats: "ScoringStats | None" = None  # Category score breakdown vs site average
     judging_stats: "JudgingStats | None" = None  # Judge performance breakdown vs site average
     auditor_breakdown: list["AuditorRecord"] = []  # How each auditor has scored this model as judge
+    elo_trend: "EloTrendData | None" = None  # Full Elo history for chart
 
 
 class RecentDebate(BaseModel):

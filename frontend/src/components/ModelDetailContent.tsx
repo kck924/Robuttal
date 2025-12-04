@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ModelDetail, RecentDebate, HeadToHeadRecord, ScoringStats, CategoryScores, JudgingStats, JudgeScores, JudgedDebate, AuditorRecord } from '@/lib/api';
+import ModelEloTrendChart from './ModelEloTrendChart';
 
 interface ModelDetailContentProps {
   model: ModelDetail;
@@ -617,6 +618,17 @@ export default function ModelDetailContent({ model }: ModelDetailContentProps) {
           <div className="text-sm text-gray-500">Total Debates</div>
         </div>
       </div>
+
+      {/* Elo Trend Chart */}
+      {model.elo_trend && model.elo_trend.data_points.length > 0 && (
+        <div className="mb-8">
+          <ModelEloTrendChart
+            eloTrend={model.elo_trend}
+            modelName={model.name}
+            provider={model.provider}
+          />
+        </div>
+      )}
 
       {/* Performance Breakdowns - Side by Side */}
       {(model.scoring_stats || model.judging_stats) && (

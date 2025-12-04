@@ -14,6 +14,8 @@ from app.schemas.model import (
     DebaterStanding,
     EloDataPoint,
     EloHistoryResponse,
+    EloTrendData,
+    EloTrendPoint,
     HeadToHeadRecord,
     JudgedDebate,
     JudgeScores,
@@ -332,6 +334,9 @@ async def _build_model_detail_response(
     # Build auditor breakdown (how each auditor rates this model as judge)
     auditor_breakdown = await _build_auditor_breakdown(db, model_id)
 
+    # Build Elo trend data for chart
+    elo_trend = await _build_elo_trend(db, model_id)
+
     return ModelDetailResponse(
         id=model.id,
         name=model.name,
@@ -356,6 +361,7 @@ async def _build_model_detail_response(
         scoring_stats=scoring_stats,
         judging_stats=judging_stats,
         auditor_breakdown=auditor_breakdown,
+        elo_trend=elo_trend,
     )
 
 
@@ -828,6 +834,68 @@ def _calculate_trend_from_debates(model_id: UUID, debates: list[Debate]) -> int 
         total_change += 16 if won else -16
 
     return total_change
+
+
+async def _build_elo_trend(
+    db: AsyncSession,
+    model_id: UUID,
+) -> EloTrendData | None:
+    """
+    Build Elo trend data for a single model showing Elo vs debate number.
+
+    Returns Elo after each debate, ordered by debate completion time.
+    X-axis will be debate number (1, 2, 3, ...).
+    """
+    # Get ALL completed debates for this model, ordered by time
+    debates_query = (
+        select(Debate)
+        .options(
+            selectinload(Debate.debater_pro),
+            selectinload(Debate.debater_con),
+        )
+        .where(
+            Debate.status == DebateStatus.COMPLETED,
+            or_(
+                Debate.debater_pro_id == model_id,
+                Debate.debater_con_id == model_id,
+            ),
+            Debate.completed_at.isnot(None),
+        )
+        .order_by(Debate.completed_at.asc())
+    )
+
+    result = await db.execute(debates_query)
+    debates = result.scalars().all()
+
+    if not debates:
+        return None
+
+    data_points: list[EloTrendPoint] = []
+
+    for i, debate in enumerate(debates, start=1):
+        is_pro = debate.debater_pro_id == model_id
+        opponent = debate.debater_con if is_pro else debate.debater_pro
+        elo_after = debate.pro_elo_after if is_pro else debate.con_elo_after
+        won = debate.winner_id == model_id
+
+        if elo_after is not None:
+            data_points.append(
+                EloTrendPoint(
+                    debate_number=i,
+                    elo=elo_after,
+                    result="win" if won else "loss",
+                    opponent_name=opponent.name,
+                    debate_id=debate.id,
+                )
+            )
+
+    if not data_points:
+        return None
+
+    return EloTrendData(
+        data_points=data_points,
+        starting_elo=STARTING_ELO,
+    )
 
 
 async def _build_elo_history(

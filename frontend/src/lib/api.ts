@@ -263,12 +263,26 @@ export interface AuditorRecord {
   avg_reasoning: number | null;
 }
 
+export interface EloTrendPoint {
+  debate_number: number;
+  elo: number;
+  result: string;
+  opponent_name: string;
+  debate_id: string;
+}
+
+export interface EloTrendData {
+  data_points: EloTrendPoint[];
+  starting_elo: number;
+}
+
 export interface ModelDetail extends Model {
   recent_debates: RecentDebate[];
   head_to_head: HeadToHeadRecord[];
   scoring_stats: ScoringStats | null;
   judging_stats: JudgingStats | null;
   auditor_breakdown: AuditorRecord[];
+  elo_trend: EloTrendData | null;
 }
 
 export interface DebaterStanding {
