@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -731,27 +731,14 @@ async def _get_debate_score_context(
     Get context for comparing debate scores to historical averages.
     """
     # 1. Pro model's historical average score (across all their debates as debater)
+    # Use CASE to select the right score column based on which position they played
+    pro_score_expr = case(
+        (Debate.debater_pro_id == pro_model_id, Debate.pro_score),
+        (Debate.debater_con_id == pro_model_id, Debate.con_score),
+        else_=None,
+    )
     pro_avg_query = select(
-        func.avg(
-            func.coalesce(
-                # When pro in this debate, use pro_score
-                func.nullif(
-                    func.case(
-                        (Debate.debater_pro_id == pro_model_id, Debate.pro_score),
-                        else_=None,
-                    ),
-                    None,
-                ),
-                # When con in this debate, use con_score
-                func.nullif(
-                    func.case(
-                        (Debate.debater_con_id == pro_model_id, Debate.con_score),
-                        else_=None,
-                    ),
-                    None,
-                ),
-            )
-        ),
+        func.avg(pro_score_expr),
         func.count(Debate.id),
     ).where(
         Debate.status == DebateStatus.COMPLETED,
@@ -765,25 +752,13 @@ async def _get_debate_score_context(
     pro_model_debates = pro_row[1] or 0
 
     # 2. Con model's historical average score (across all their debates as debater)
+    con_score_expr = case(
+        (Debate.debater_pro_id == con_model_id, Debate.pro_score),
+        (Debate.debater_con_id == con_model_id, Debate.con_score),
+        else_=None,
+    )
     con_avg_query = select(
-        func.avg(
-            func.coalesce(
-                func.nullif(
-                    func.case(
-                        (Debate.debater_pro_id == con_model_id, Debate.pro_score),
-                        else_=None,
-                    ),
-                    None,
-                ),
-                func.nullif(
-                    func.case(
-                        (Debate.debater_con_id == con_model_id, Debate.con_score),
-                        else_=None,
-                    ),
-                    None,
-                ),
-            )
-        ),
+        func.avg(con_score_expr),
         func.count(Debate.id),
     ).where(
         Debate.status == DebateStatus.COMPLETED,
