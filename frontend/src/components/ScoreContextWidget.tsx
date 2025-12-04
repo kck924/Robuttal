@@ -32,12 +32,9 @@ function ScoreDotPlot({
   // Convert score to percentage position
   const scoreToPercent = (score: number) => ((score - minScore) / range) * 100;
 
-  // All data points for visualization (historical avg shown separately as marker)
+  // Data points for visualization (averages shown as vertical lines)
   const dataPoints = [
     { value: currentScore, label: 'This debate', color, isMain: true },
-    siteAvg !== null
-      ? { value: siteAvg, label: 'Site avg', color: '#9ca3af', isMain: false }
-      : null,
     judgeAvg !== null
       ? { value: judgeAvg, label: 'Judge avg', color: '#a855f7', isMain: false }
       : null,
@@ -118,6 +115,23 @@ function ScoreDotPlot({
           </div>
         )}
 
+        {/* Site average marker - solid vertical line (gray) */}
+        {siteAvg !== null && (
+          <div
+            className="absolute top-0 bottom-0 group z-4"
+            style={{ left: `${scoreToPercent(siteAvg)}%` }}
+          >
+            {/* Solid vertical line */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 -ml-px bg-gray-400 opacity-60"
+            />
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20">
+              Site avg: {siteAvg.toFixed(0)}
+            </div>
+          </div>
+        )}
+
         {/* Data point dots */}
         {dataPoints.map((point, idx) => (
           <div
@@ -158,6 +172,12 @@ function ScoreDotPlot({
               style={{ backgroundColor: color, opacity: 0.6 }}
             />
             Model avg
+          </span>
+        )}
+        {siteAvg !== null && (
+          <span className="flex items-center gap-1">
+            <span className="w-0.5 h-3 rounded-full bg-gray-400 opacity-60" />
+            Site avg
           </span>
         )}
       </div>
