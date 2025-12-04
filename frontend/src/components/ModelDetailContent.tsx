@@ -669,7 +669,32 @@ export default function ModelDetailContent({ model }: ModelDetailContentProps) {
       {model.auditor_breakdown.length > 0 && (
         <div className="card mb-8">
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-gray-900">Judge Scores by Auditor</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">Judge Scores by Auditor</h2>
+              <div className="relative group">
+                <svg
+                  className="w-4 h-4 text-gray-400 cursor-help"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10">
+                  <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-64 shadow-lg">
+                    <p>
+                      This shows how each auditor model has scored {model.name} when it acts as a judge. Higher scores indicate better judging quality.
+                    </p>
+                    <div className="absolute left-3 top-full w-2 h-2 bg-gray-900 transform rotate-45 -translate-y-1"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <p className="text-sm text-gray-500 mt-1">
               How each auditor has rated {model.name} as a judge
             </p>
