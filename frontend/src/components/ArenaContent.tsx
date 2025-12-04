@@ -419,5 +419,6 @@ export default function ArenaContent({ debate, isLive, votes, schedule, topTopic
         </div>
       </div>
     </div>
+    </>
   );
 }
