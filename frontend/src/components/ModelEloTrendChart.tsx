@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   LineChart,
   Line,
@@ -11,6 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Label,
 } from 'recharts';
 import type { EloTrendData } from '@/lib/api';
 
@@ -35,6 +36,8 @@ export default function ModelEloTrendChart({
   modelName,
   provider,
 }: ModelEloTrendChartProps) {
+  const router = useRouter();
+
   const { chartData, lineColor, minElo, maxElo } = useMemo(() => {
     const lineColor = PROVIDER_COLORS[provider] || '#6b7280';
 
@@ -154,19 +157,20 @@ export default function ModelEloTrendChart({
     );
   };
 
-  // Custom dot component to show wins/losses
+  // Custom dot component to show wins/losses (clickable for debates)
   const CustomDot = (props: {
     cx?: number;
     cy?: number;
     payload?: {
       result: string;
       debate_number: number;
+      debate_id: string;
     };
   }) => {
     const { cx, cy, payload } = props;
     if (cx === undefined || cy === undefined || !payload) return null;
 
-    // Starting point - neutral dot
+    // Starting point - neutral dot (not clickable)
     if (payload.debate_number === 0) {
       return (
         <circle
@@ -190,6 +194,8 @@ export default function ModelEloTrendChart({
         fill={isWin ? '#22c55e' : '#ef4444'}
         stroke="white"
         strokeWidth={2}
+        style={{ cursor: 'pointer' }}
+        onClick={() => router.push(`/debates/${payload.debate_id}`)}
       />
     );
   };
@@ -232,13 +238,15 @@ export default function ModelEloTrendChart({
                 y={eloTrend.starting_elo}
                 stroke="#d1d5db"
                 strokeDasharray="5 5"
-                label={{
-                  value: '1500 neutral',
-                  position: 'right',
-                  fill: '#9ca3af',
-                  fontSize: 11,
-                }}
-              />
+              >
+                <Label
+                  value="1500 neutral"
+                  position="insideLeft"
+                  offset={10}
+                  fill="#9ca3af"
+                  fontSize={11}
+                />
+              </ReferenceLine>
               <Line
                 type="monotone"
                 dataKey="elo"
