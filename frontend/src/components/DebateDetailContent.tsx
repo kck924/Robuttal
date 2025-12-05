@@ -614,28 +614,6 @@ function getCategoryColor(category: string): string {
   }
 }
 
-// Compact Elo delta badge for mobile
-function EloDeltaBadge({ before, after }: { before: number | null; after: number | null }) {
-  if (before === null || after === null) return null;
-
-  const delta = after - before;
-  const isPositive = delta > 0;
-  const isNegative = delta < 0;
-
-  return (
-    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${
-      isPositive
-        ? 'bg-green-100 text-green-700'
-        : isNegative
-        ? 'bg-red-100 text-red-700'
-        : 'bg-gray-100 text-gray-500'
-    }`}>
-      {isPositive ? '↑' : isNegative ? '↓' : '→'}
-      {Math.abs(delta)}
-    </span>
-  );
-}
-
 // Elo sparkline visualization component with 1500 baseline
 function EloSparkline({ before, after }: { before: number | null; after: number | null }) {
   if (before === null || after === null) return null;
@@ -1061,14 +1039,8 @@ export default function DebateDetailContent({
                   Winner
                 </span>
               )}
-              {/* Mobile: compact badge */}
-              <div className="sm:hidden mt-1">
-                <EloDeltaBadge before={debate.pro_elo_before} after={debate.pro_elo_after} />
-              </div>
-              {/* Desktop: full sparkline */}
-              <div className="hidden sm:block">
-                <EloSparkline before={debate.pro_elo_before} after={debate.pro_elo_after} />
-              </div>
+              {/* Elo sparkline - shown on both mobile and desktop */}
+              <EloSparkline before={debate.pro_elo_before} after={debate.pro_elo_after} />
             </div>
 
             {/* VS */}
@@ -1101,14 +1073,8 @@ export default function DebateDetailContent({
                   Winner
                 </span>
               )}
-              {/* Mobile: compact badge */}
-              <div className="sm:hidden mt-1">
-                <EloDeltaBadge before={debate.con_elo_before} after={debate.con_elo_after} />
-              </div>
-              {/* Desktop: full sparkline */}
-              <div className="hidden sm:block">
-                <EloSparkline before={debate.con_elo_before} after={debate.con_elo_after} />
-              </div>
+              {/* Elo sparkline - shown on both mobile and desktop */}
+              <EloSparkline before={debate.con_elo_before} after={debate.con_elo_after} />
             </div>
           </div>
 
