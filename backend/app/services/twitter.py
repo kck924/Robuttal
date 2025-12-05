@@ -12,6 +12,17 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+# Provider to Twitter handle mapping
+PROVIDER_TWITTER_HANDLES: dict[str, str] = {
+    "anthropic": "@AnthropicAI",
+    "openai": "@OpenAI",
+    "google": "@GoogleAI",
+    "mistral": "@MistralAI",
+    "xai": "@xaboratory",
+    "deepseek": "@deepaboratory",
+}
+
+
 @dataclass
 class DebateAnnouncement:
     """Data for a debate announcement tweet."""
@@ -20,9 +31,20 @@ class DebateAnnouncement:
     topic_title: str
     pro_model_name: str
     pro_elo: int
+    pro_provider: str
     con_model_name: str
     con_elo: int
+    con_provider: str
     site_url: str = "https://robuttal.com"
+
+    def _get_provider_mentions(self) -> str:
+        """Get unique provider Twitter handles for both models."""
+        mentions = set()
+        if self.pro_provider in PROVIDER_TWITTER_HANDLES:
+            mentions.add(PROVIDER_TWITTER_HANDLES[self.pro_provider])
+        if self.con_provider in PROVIDER_TWITTER_HANDLES:
+            mentions.add(PROVIDER_TWITTER_HANDLES[self.con_provider])
+        return " ".join(sorted(mentions))
 
     def format_tweet(self) -> str:
         """Format the tweet text for a new debate announcement.
@@ -37,15 +59,19 @@ class DebateAnnouncement:
         GPT-4o (1518 Elo)
 
         Watch now: https://robuttal.com/debates/abc123
+
+        @AnthropicAI @OpenAI #AI #LLM #GenerativeAI
         """
         # Truncate topic if needed (tweets have 280 char limit)
-        # Reserve ~100 chars for the rest of the tweet structure
-        max_topic_len = 120
+        # Reserve ~150 chars for the rest of the tweet structure (mentions, hashtags, URL)
+        max_topic_len = 100
         topic = self.topic_title
         if len(topic) > max_topic_len:
             topic = topic[: max_topic_len - 3] + "..."
 
         debate_url = f"{self.site_url}/debates/{self.debate_id}"
+        mentions = self._get_provider_mentions()
+        hashtags = "#AI #LLM #GenerativeAI"
 
         tweet = f"""NEW DEBATE LIVE
 
@@ -55,7 +81,9 @@ class DebateAnnouncement:
 vs
 {self.con_model_name} ({self.con_elo} Elo)
 
-Watch now: {debate_url}"""
+Watch now: {debate_url}
+
+{mentions} {hashtags}"""
 
         return tweet
 
@@ -175,8 +203,10 @@ class TwitterService:
         topic_title: str,
         pro_model_name: str,
         pro_elo: int,
+        pro_provider: str,
         con_model_name: str,
         con_elo: int,
+        con_provider: str,
     ) -> Optional[str]:
         """Announce a new debate has started."""
         announcement = DebateAnnouncement(
@@ -184,8 +214,10 @@ class TwitterService:
             topic_title=topic_title,
             pro_model_name=pro_model_name,
             pro_elo=pro_elo,
+            pro_provider=pro_provider,
             con_model_name=con_model_name,
             con_elo=con_elo,
+            con_provider=con_provider,
         )
 
         tweet_text = announcement.format_tweet()
@@ -212,8 +244,10 @@ async def announce_debate(
     topic_title: str,
     pro_model_name: str,
     pro_elo: int,
+    pro_provider: str,
     con_model_name: str,
     con_elo: int,
+    con_provider: str,
 ) -> Optional[str]:
     """Convenience function to announce a debate."""
     service = get_twitter_service()
@@ -222,6 +256,8 @@ async def announce_debate(
         topic_title=topic_title,
         pro_model_name=pro_model_name,
         pro_elo=pro_elo,
+        pro_provider=pro_provider,
         con_model_name=con_model_name,
         con_elo=con_elo,
+        con_provider=con_provider,
     )

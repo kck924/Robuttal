@@ -369,8 +369,10 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
                     topic_title=topic.title,
                     pro_model_name=debater_pro.name,
                     pro_elo=debater_pro.elo_rating,
+                    pro_provider=debater_pro.provider,
                     con_model_name=debater_con.name,
                     con_elo=debater_con.elo_rating,
+                    con_provider=debater_con.provider,
                 )
             except Exception as twitter_error:
                 # Don't let Twitter failures affect the debate
