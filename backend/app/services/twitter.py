@@ -18,8 +18,8 @@ PROVIDER_TWITTER_HANDLES: dict[str, str] = {
     "openai": "@OpenAI",
     "google": "@GoogleAI",
     "mistral": "@MistralAI",
-    "xai": "@xaboratory",
-    "deepseek": "@deepaboratory",
+    "xai": "@xai",
+    "deepseek": "@deepseek_ai",
 }
 
 
