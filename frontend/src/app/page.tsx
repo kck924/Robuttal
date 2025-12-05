@@ -59,9 +59,16 @@ async function getArenaData() {
     // Continue to fallback
   }
 
-  // Fallback: get most recent completed debate
+  // Fallback: get most recent debate (completed or judging)
+  // Try completed first, then judging if no completed debates exist
   try {
-    const debatesResponse = await getDebates({ status: 'completed', limit: 1 });
+    let debatesResponse = await getDebates({ status: 'completed', limit: 1 });
+
+    // If no completed debates, try judging status (debate finished but still being processed)
+    if (debatesResponse.debates.length === 0) {
+      debatesResponse = await getDebates({ status: 'judging', limit: 1 });
+    }
+
     if (debatesResponse.debates.length > 0) {
       const listItem = debatesResponse.debates[0];
 
