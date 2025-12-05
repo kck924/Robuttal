@@ -40,8 +40,9 @@ export default function FloatingMobileActions() {
             });
             if (voteSection) {
               // Get position and scroll with offset for header
-              const rect = voteSection.getBoundingClientRect();
-              const scrollTop = window.pageYOffset + rect.top - 80; // 80px offset for header
+              const element = voteSection as HTMLElement;
+              const rect = element.getBoundingClientRect();
+              const scrollTop = window.scrollY + rect.top - 80; // 80px offset for header
               window.scrollTo({ top: scrollTop, behavior: 'smooth' });
             } else {
               // Fallback: scroll to bottom where vote section typically is
