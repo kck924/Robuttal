@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import FloatingFollowButton from '@/components/FloatingFollowButton';
 import Providers from '@/components/Providers';
 import './globals.css';
 
@@ -66,6 +67,7 @@ export default function RootLayout({
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
+          <FloatingFollowButton />
         </Providers>
       </body>
     </html>
