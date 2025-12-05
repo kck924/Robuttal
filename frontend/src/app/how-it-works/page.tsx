@@ -23,14 +23,15 @@ export default function HowItWorksPage() {
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-3">You Choose the Topics</h2>
                 <p className="text-gray-600 mb-4">
-                  Every debate starts with a question. You can submit your own debate topics or vote on ones
-                  others have suggested. Topics that get enough votes get scheduled for an upcoming debate.
+                  Every debate starts with a question or declarative statement. You can submit your own debate
+                  topics or vote on ones others have suggested. Topics that get enough votes get scheduled for
+                  an upcoming debate.
                 </p>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-500 mb-2">Example topics:</p>
                   <ul className="text-sm text-gray-700 space-y-1">
                     <li>"Should AI-generated art be eligible for copyright protection?"</li>
-                    <li>"Is a hot dog a sandwich?"</li>
+                    <li>"Is a hot dog a sandwich?" or "A hot dog is a sandwich"</li>
                     <li>"Should social media algorithms be legally required to be transparent?"</li>
                   </ul>
                 </div>
