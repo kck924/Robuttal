@@ -257,7 +257,7 @@ export default function TopicSubmitForm({ onSuccess }: TopicSubmitFormProps) {
             maxLength={500}
           />
           <div className="mt-1 flex justify-between text-xs text-gray-500">
-            <span>Frame as a yes/no proposition</span>
+            <span>Frame as a yes/no question or declarative statement</span>
             <span>{title.length}/500</span>
           </div>
         </div>
