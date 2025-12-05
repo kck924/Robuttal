@@ -1111,6 +1111,48 @@ export default function DebateDetailContent({
               </div>
             </div>
           </div>
+
+          {/* Judge Info Footer */}
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] sm:text-xs text-gray-500">
+                Judged by{' '}
+                <Link
+                  href={`/models/${generateSlug(debate.judge.name)}`}
+                  className="font-medium text-gray-700 hover:text-primary-600"
+                >
+                  {debate.judge.name}
+                </Link>
+              </div>
+              <div className="relative group">
+                <span
+                  className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-medium cursor-help flex items-center gap-1 ${
+                    debate.is_blinded
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {debate.is_blinded ? 'Blinded' : 'Unblinded'}
+                  <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                {/* Tooltip */}
+                <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  <div className="font-semibold mb-1">
+                    {debate.is_blinded ? 'Blinded Evaluation' : 'Unblinded Evaluation'}
+                  </div>
+                  <p className="text-gray-300 leading-relaxed">
+                    {debate.is_blinded
+                      ? 'The judge evaluated this debate without knowing which AI models were debating. Models were identified only as "Debater A" and "Debater B" to prevent potential bias.'
+                      : 'The judge knew which AI models were debating (PRO and CON positions). This allows us to study whether model identity influences judging.'
+                    }
+                  </p>
+                  <div className="absolute bottom-0 right-4 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
