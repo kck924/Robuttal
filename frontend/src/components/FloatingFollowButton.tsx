@@ -30,9 +30,16 @@ export default function FloatingMobileActions() {
           className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 text-white text-xs font-medium rounded-full shadow-lg hover:bg-gray-700 transition-colors"
           onClick={(e) => {
             e.preventDefault();
-            const voteSection = document.querySelector('[class*="Community Vote"], h2:contains("Community Vote")');
+            // Find the Community Vote heading
+            const headings = document.querySelectorAll('h2');
+            let voteSection: Element | null = null;
+            headings.forEach((h) => {
+              if (h.textContent?.includes('Community Vote')) {
+                voteSection = h;
+              }
+            });
             if (voteSection) {
-              voteSection.scrollIntoView({ behavior: 'smooth' });
+              voteSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
               // Fallback: scroll to bottom where vote section typically is
               window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
