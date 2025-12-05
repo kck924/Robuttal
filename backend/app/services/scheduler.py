@@ -210,8 +210,14 @@ class DebateScheduler:
                 await db.commit()
                 logger.info(f"Audit completed for stuck debate {debate_id}")
 
-                # Update Elo ratings
-                await update_elos_for_debate(db, debate.id)
+                # Refresh debate to get updated status after audit
+                await db.refresh(debate)
+
+                # Update Elo ratings (only if not already updated)
+                if debate.pro_elo_before is None:
+                    await update_elos_for_debate(db, debate.id)
+                else:
+                    logger.info(f"Elo already updated for debate {debate_id}, skipping")
 
                 # Mark topic as debated
                 topic = await db.get(Topic, debate.topic_id)
