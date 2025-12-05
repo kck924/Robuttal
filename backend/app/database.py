@@ -13,6 +13,11 @@ connect_args = {
     # Disable statement caching for pgbouncer compatibility (Supabase pooler)
     "statement_cache_size": 0,
     "prepared_statement_cache_size": 0,
+    # Connection timeout: fail fast if can't connect within 30 seconds
+    "timeout": 30,
+    # Command timeout: kill queries that run longer than 5 minutes
+    # This prevents hung connections from debates that crash mid-execution
+    "command_timeout": 300,
 }
 
 # Add SSL for Supabase connections
@@ -29,6 +34,9 @@ engine = create_async_engine(
     echo=settings.debug,
     poolclass=NullPool,
     connect_args=connect_args,
+    # Additional safety: close connections after 30 minutes of being open
+    # This ensures long-running debates don't hold connections forever
+    pool_pre_ping=True,  # Verify connection is alive before using
 )
 
 async_session_maker = async_sessionmaker(
