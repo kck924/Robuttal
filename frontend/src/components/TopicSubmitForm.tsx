@@ -157,6 +157,10 @@ export default function TopicSubmitForm({ onSuccess }: TopicSubmitFormProps) {
           <p className="text-xs text-gray-400 mt-4">
             Voting on topics does not require an account.
           </p>
+          <p className="text-xs text-gray-400 mt-2">
+            Coming from LinkedIn, Twitter, or Facebook?<br />
+            Tap <span className="font-medium">⋯</span> → <span className="font-medium">&quot;Open in Browser&quot;</span> first.
+          </p>
         </div>
       </div>
     );
