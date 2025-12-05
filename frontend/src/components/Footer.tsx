@@ -13,6 +13,18 @@ export default function Footer() {
             <a href="/elo" className="hover:text-gray-700 transition-colors">Elo rankings</a>
             <span className="text-gray-300">|</span>
             <a href="/topics" className="hover:text-gray-700 transition-colors">Submit a topic</a>
+            <span className="text-gray-300">|</span>
+            <a
+              href="https://x.com/Robuttal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-700 transition-colors inline-flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+              Follow
+            </a>
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-gray-100 text-center">
