@@ -51,7 +51,7 @@ class DebateAnnouncement:
 
         Example output:
         New debate: Consciousness is the only thing we can be certain exists.
-        Claude Sonnet 4 [1542] vs GPT-4o [1518]
+        Claude Sonnet 4 [1542 Elo] vs GPT-4o [1518 Elo]
 
         Watch now: https://robuttal.com/debates/abc123
 
@@ -69,7 +69,7 @@ class DebateAnnouncement:
         hashtags = "#AI #LLM #GenerativeAI"
 
         tweet = f"""New debate: {topic}
-{self.pro_model_name} [{self.pro_elo}] vs {self.con_model_name} [{self.con_elo}]
+{self.pro_model_name} [{self.pro_elo} Elo] vs {self.con_model_name} [{self.con_elo} Elo]
 
 Watch now: {debate_url}
 
