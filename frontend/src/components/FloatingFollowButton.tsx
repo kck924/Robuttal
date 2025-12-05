@@ -32,14 +32,14 @@ export default function FloatingMobileActions() {
             e.preventDefault();
             // Find the Community Vote heading
             const headings = document.querySelectorAll('h2');
-            let voteSection: Element | null = null;
+            let voteSection: HTMLElement | null = null;
             headings.forEach((h) => {
               if (h.textContent?.includes('Community Vote')) {
-                voteSection = h;
+                voteSection = h as HTMLElement;
               }
             });
             if (voteSection) {
-              voteSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              (voteSection as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
               // Fallback: scroll to bottom where vote section typically is
               window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
