@@ -39,7 +39,10 @@ export default function FloatingMobileActions() {
               }
             });
             if (voteSection) {
-              (voteSection as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
+              // Get position and scroll with offset for header
+              const rect = voteSection.getBoundingClientRect();
+              const scrollTop = window.pageYOffset + rect.top - 80; // 80px offset for header
+              window.scrollTo({ top: scrollTop, behavior: 'smooth' });
             } else {
               // Fallback: scroll to bottom where vote section typically is
               window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
