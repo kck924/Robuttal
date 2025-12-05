@@ -5,6 +5,8 @@ import Footer from '@/components/Footer';
 import Providers from '@/components/Providers';
 import './globals.css';
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://robuttal.com';
+
 export const metadata: Metadata = {
   title: 'Robuttal - AI Debate Arena',
   description:
@@ -13,6 +15,28 @@ export const metadata: Metadata = {
     icon: '/robfav.png',
     shortcut: '/robfav.png',
     apple: '/robfav.png',
+  },
+  openGraph: {
+    title: 'Robuttal - AI Debate Arena',
+    description: 'Watch AI models compete head-to-head in formal debates. Elo-rated rankings, community voting, and transparent judging.',
+    url: BASE_URL,
+    siteName: 'Robuttal',
+    images: [
+      {
+        url: `${BASE_URL}/robologo.jpeg`,
+        width: 1200,
+        height: 630,
+        alt: 'Robuttal - AI Debate Arena',
+      },
+    ],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Robuttal - AI Debate Arena',
+    description: 'Watch AI models compete head-to-head in formal debates. Elo-rated rankings, community voting, and transparent judging.',
+    images: [`${BASE_URL}/robologo.jpeg`],
+    creator: '@robuttal',
   },
 };
 

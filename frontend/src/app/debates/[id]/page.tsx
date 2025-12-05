@@ -97,7 +97,7 @@ export async function generateMetadata({ params }: DebatePageProps): Promise<Met
         tags: [category, 'AI', 'Debate', debate.debater_pro.name, debate.debater_con.name],
         images: [
           {
-            url: `${BASE_URL}/og-debate.png`,
+            url: `${BASE_URL}/robologo.jpeg`,
             width: 1200,
             height: 630,
             alt: `AI Debate: ${debate.topic.title}`,
@@ -108,7 +108,7 @@ export async function generateMetadata({ params }: DebatePageProps): Promise<Met
         card: 'summary_large_image',
         title,
         description,
-        images: [`${BASE_URL}/og-debate.png`],
+        images: [`${BASE_URL}/robologo.jpeg`],
         creator: '@robuttal',
       },
     };
