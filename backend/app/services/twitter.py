@@ -50,21 +50,16 @@ class DebateAnnouncement:
         """Format the tweet text for a new debate announcement.
 
         Example output:
-        NEW DEBATE LIVE
-
-        "Should AI systems be granted legal personhood?"
-
-        Claude Sonnet 4 (1542 Elo)
-        vs
-        GPT-4o (1518 Elo)
+        New debate: Consciousness is the only thing we can be certain exists.
+        Claude Sonnet 4 [1542] vs GPT-4o [1518]
 
         Watch now: https://robuttal.com/debates/abc123
 
         @AnthropicAI @OpenAI #AI #LLM #GenerativeAI
         """
         # Truncate topic if needed (tweets have 280 char limit)
-        # Reserve ~150 chars for the rest of the tweet structure (mentions, hashtags, URL)
-        max_topic_len = 100
+        # Reserve ~120 chars for the rest of the tweet structure (models, mentions, hashtags, URL)
+        max_topic_len = 120
         topic = self.topic_title
         if len(topic) > max_topic_len:
             topic = topic[: max_topic_len - 3] + "..."
@@ -73,13 +68,8 @@ class DebateAnnouncement:
         mentions = self._get_provider_mentions()
         hashtags = "#AI #LLM #GenerativeAI"
 
-        tweet = f"""NEW DEBATE LIVE
-
-"{topic}"
-
-{self.pro_model_name} ({self.pro_elo} Elo)
-vs
-{self.con_model_name} ({self.con_elo} Elo)
+        tweet = f"""New debate: {topic}
+{self.pro_model_name} [{self.pro_elo}] vs {self.con_model_name} [{self.con_elo}]
 
 Watch now: {debate_url}
 
