@@ -27,7 +27,7 @@ DEBATE_TIMES = [
     (17, 0),   # 12:00 PM EST
     (20, 0),   # 3:00 PM EST
     (23, 0),   # 6:00 PM EST
-    (2, 0),    # 9:00 PM EST (next day UTC)
+    (2, 0),    # 9:00 PM EST (next UTC day)
 ]
 
 # Minimum votes for user-submitted topics
