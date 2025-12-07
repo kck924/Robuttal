@@ -466,8 +466,27 @@ export default function TopicsContent({
           {/* Domains */}
           <div className="card">
             <div className="card-header">
-              <h3 className="font-semibold text-gray-900">Domains</h3>
-              <p className="text-xs text-gray-500 mt-1">Topics are auto-categorized into 6 domains</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Domains</h3>
+                {selectedCategory && (
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setTopics(initialTopics);
+                      setSearchTotal(null);
+                    }}
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    Clear filter
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedCategory
+                  ? `Showing: ${selectedCategory}`
+                  : 'Click to filter by domain or subdomain'
+                }
+              </p>
             </div>
             <div className="card-body space-y-1">
               {(taxonomy?.domains || []).map((domain) => {
@@ -476,30 +495,52 @@ export default function TopicsContent({
 
                 return (
                   <div key={domain.domain}>
-                    <button
-                      onClick={() => setExpandedDomain(isExpanded ? null : domain.domain)}
-                      className={`w-full px-3 py-2 rounded-lg text-sm font-medium text-left flex items-center justify-between transition-colors ${colorClass}`}
-                    >
-                      <span>{domain.domain}</span>
-                      <svg
-                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setSelectedCategory(domain.domain);
+                          setSearchQuery('');
+                        }}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
+                          selectedCategory === domain.domain
+                            ? 'ring-2 ring-primary-500 ring-offset-1'
+                            : ''
+                        } ${colorClass}`}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+                        {domain.domain}
+                      </button>
+                      <button
+                        onClick={() => setExpandedDomain(isExpanded ? null : domain.domain)}
+                        className={`p-2 rounded-lg transition-colors ${colorClass}`}
+                      >
+                        <svg
+                          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
                     {isExpanded && domain.subdomains.length > 0 && (
                       <div className="mt-1 ml-3 space-y-1">
                         {domain.subdomains.map((sub) => (
-                          <div
+                          <button
                             key={sub.subdomain}
-                            className="px-3 py-1.5 text-xs text-gray-600 bg-gray-50 rounded"
+                            onClick={() => {
+                              setSelectedCategory(sub.subdomain);
+                              setSearchQuery('');
+                            }}
+                            className={`w-full px-3 py-1.5 text-xs text-left rounded transition-colors ${
+                              selectedCategory === sub.subdomain
+                                ? 'bg-primary-100 text-primary-700 font-medium'
+                                : 'text-gray-600 bg-gray-50 hover:bg-gray-100'
+                            }`}
                             title={sub.description}
                           >
                             {sub.subdomain}
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
