@@ -26,9 +26,26 @@ function getNextDebateTime(): Date {
   const currentMinuteUTC = now.getUTCMinutes();
   const currentTimeMinutes = currentHourUTC * 60 + currentMinuteUTC;
 
+  // UTC timeline for one cycle:
+  // 2:00 UTC (9 PM EST) -> 11:00 UTC (6 AM EST) -> 14:00 -> 17:00 -> 20:00 -> 23:00 -> 2:00 next day
+
+  // If we're before 2 AM UTC, next debate is 2 AM UTC today (9 PM EST tonight)
+  if (currentTimeMinutes < 2 * 60) {
+    const next = new Date(now);
+    next.setUTCHours(2, 0, 0, 0);
+    return next;
+  }
+
+  // If we're between 2 AM and 11 AM UTC, next debate is 11 AM UTC (6 AM EST)
+  if (currentTimeMinutes < 11 * 60) {
+    const next = new Date(now);
+    next.setUTCHours(11, 0, 0, 0);
+    return next;
+  }
+
   // Check times 11, 14, 17, 20, 23 (same UTC day)
-  for (let i = 0; i < 5; i++) {
-    const [hour, minute] = DEBATE_TIMES_UTC[i];
+  const sameDayTimes = [[11, 0], [14, 0], [17, 0], [20, 0], [23, 0]];
+  for (const [hour, minute] of sameDayTimes) {
     const debateTimeMinutes = hour * 60 + minute;
     if (debateTimeMinutes > currentTimeMinutes) {
       const next = new Date(now);
@@ -37,37 +54,11 @@ function getNextDebateTime(): Date {
     }
   }
 
-  // Check if we're before 2 AM UTC (9 PM EST is still "today" in EST)
-  const [lastHour, lastMinute] = DEBATE_TIMES_UTC[5]; // 2:00 UTC
-  const lastDebateMinutes = lastHour * 60 + lastMinute;
-
-  if (currentTimeMinutes >= 23 * 60) {
-    // After 11 PM UTC, next debate is 2 AM UTC tomorrow (9 PM EST tonight)
-    const next = new Date(now);
-    next.setUTCDate(next.getUTCDate() + 1);
-    next.setUTCHours(lastHour, lastMinute, 0, 0);
-    return next;
-  }
-
-  if (currentTimeMinutes < lastDebateMinutes) {
-    // Before 2 AM UTC, check if 2 AM is still upcoming today
-    const next = new Date(now);
-    next.setUTCHours(lastHour, lastMinute, 0, 0);
-    return next;
-  }
-
-  // After 2 AM UTC but before 11 AM UTC - next debate is 11 AM UTC (6 AM EST)
-  if (currentTimeMinutes < 11 * 60) {
-    const next = new Date(now);
-    next.setUTCHours(11, 0, 0, 0);
-    return next;
-  }
-
-  // Fallback: next day at 11 AM UTC (6 AM EST)
-  const tomorrow = new Date(now);
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  tomorrow.setUTCHours(11, 0, 0, 0);
-  return tomorrow;
+  // After 23:00 UTC, next debate is 2:00 UTC tomorrow (9 PM EST tonight)
+  const next = new Date(now);
+  next.setUTCDate(next.getUTCDate() + 1);
+  next.setUTCHours(2, 0, 0, 0);
+  return next;
 }
 
 function getDebatesCompletedToday(): number {
