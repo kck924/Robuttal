@@ -18,6 +18,13 @@ connect_args = {
     # Command timeout: kill queries that run longer than 5 minutes
     # This prevents hung connections from debates that crash mid-execution
     "command_timeout": 300,
+    # Server settings for connection behavior
+    "server_settings": {
+        # Statement timeout at Postgres level (backup for command_timeout)
+        "statement_timeout": "300000",  # 5 minutes in milliseconds
+        # Idle transaction timeout - kill transactions idle for more than 2 minutes
+        "idle_in_transaction_session_timeout": "120000",
+    },
 }
 
 # Add SSL for Supabase connections

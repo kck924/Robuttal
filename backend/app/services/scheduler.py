@@ -95,14 +95,33 @@ class DebateScheduler:
         logger.info("Debate scheduler stopped")
 
     async def _run_scheduled_debate(self):
-        """Run a single scheduled debate."""
+        """Run a single scheduled debate with retry logic for transient DB errors."""
         logger.info("Starting scheduled debate")
-        try:
-            async with async_session_maker() as db:
-                await run_single_debate(db)
-                await db.commit()
-        except Exception as e:
-            logger.error(f"Scheduled debate failed: {e}", exc_info=True)
+
+        max_db_retries = 3
+        retry_delay = 10  # seconds
+
+        for attempt in range(max_db_retries):
+            try:
+                async with async_session_maker() as db:
+                    await run_single_debate(db)
+                    await db.commit()
+                    return  # Success
+            except (TimeoutError, OSError, ConnectionError) as e:
+                # Transient database/network errors - retry
+                logger.warning(
+                    f"Database connection error on attempt {attempt + 1}/{max_db_retries}: {e}"
+                )
+                if attempt < max_db_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"Scheduled debate failed after {max_db_retries} attempts: {e}")
+            except Exception as e:
+                # Non-transient error - don't retry
+                logger.error(f"Scheduled debate failed: {e}", exc_info=True)
+                return
 
     async def _cleanup_stuck_debates(self):
         """
