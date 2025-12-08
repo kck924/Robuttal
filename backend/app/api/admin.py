@@ -49,6 +49,13 @@ class ModerateTopicRequest(BaseModel):
     action: ModerationAction
 
 
+class RecategorizeTopicRequest(BaseModel):
+    """Request to recategorize a topic."""
+
+    subdomain: str
+    domain: str
+
+
 class ModerateTopicResponse(BaseModel):
     """Response from moderating a topic."""
 
@@ -275,6 +282,65 @@ async def moderate_topic(
     return ModerateTopicResponse(
         success=True,
         message=message,
+        topic=TopicResponse.model_validate(topic),
+    )
+
+
+@router.post("/topics/{topic_id}/recategorize", response_model=ModerateTopicResponse)
+async def recategorize_topic(
+    topic_id: uuid.UUID,
+    body: RecategorizeTopicRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ModerateTopicResponse:
+    """
+    Recategorize a topic's domain and subdomain.
+
+    This allows admins to correct the AI-assigned category before approving.
+    """
+    from app.taxonomy import Domain, Subdomain, TAXONOMY
+
+    # Validate the subdomain exists
+    try:
+        subdomain_enum = Subdomain(body.subdomain)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid subdomain: {body.subdomain}",
+        )
+
+    # Validate the domain exists
+    try:
+        domain_enum = Domain(body.domain)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid domain: {body.domain}",
+        )
+
+    # Validate subdomain belongs to domain
+    if TAXONOMY[subdomain_enum].domain != domain_enum:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Subdomain '{body.subdomain}' does not belong to domain '{body.domain}'",
+        )
+
+    result = await db.execute(select(Topic).where(Topic.id == topic_id))
+    topic = result.scalar_one_or_none()
+
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    # Update the category
+    topic.subdomain = body.subdomain
+    topic.domain = body.domain
+    topic.category = body.subdomain  # Legacy field
+
+    await db.flush()
+    await db.refresh(topic)
+
+    return ModerateTopicResponse(
+        success=True,
+        message=f"Topic recategorized to {body.domain} > {body.subdomain}",
         topic=TopicResponse.model_validate(topic),
     )
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { Topic, DebateListItem, getDebates } from '@/lib/api';
+import { Topic, DebateListItem, getDebates, TaxonomySubdomain, getTaxonomy } from '@/lib/api';
 
 const ADMIN_EMAIL = 'kevinklein333@gmail.com'; // Your admin email
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
@@ -94,6 +94,9 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [costDays, setCostDays] = useState(30);
+  const [taxonomy, setTaxonomy] = useState<Record<string, TaxonomySubdomain[]>>({});
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<{ domain: string; subdomain: string } | null>(null);
 
   const isAdmin = session?.user?.email === ADMIN_EMAIL;
 
@@ -102,6 +105,7 @@ export default function AdminPage() {
       fetchPendingTopics();
       fetchCostStats();
       fetchDebates();
+      fetchTaxonomy();
     } else {
       setLoading(false);
       setCostLoading(false);
@@ -152,6 +156,49 @@ export default function AdminPage() {
       console.error('Debates fetch error:', err);
     } finally {
       setDebatesLoading(false);
+    }
+  }
+
+  async function fetchTaxonomy() {
+    try {
+      const data = await getTaxonomy();
+      setTaxonomy(data);
+    } catch (err) {
+      console.error('Taxonomy fetch error:', err);
+    }
+  }
+
+  async function handleRecategorize(topicId: string) {
+    if (!selectedCategory) return;
+
+    setActionLoading(topicId);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/topics/${topicId}/recategorize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selectedCategory),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to recategorize topic');
+      }
+
+      const result = await res.json();
+      // Update topic in list
+      setTopics((prev) =>
+        prev.map((t) =>
+          t.id === topicId
+            ? { ...t, domain: selectedCategory.domain, subdomain: selectedCategory.subdomain, category: selectedCategory.subdomain }
+            : t
+        )
+      );
+      setEditingCategory(null);
+      setSelectedCategory(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to recategorize topic');
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -320,36 +367,92 @@ export default function AdminPage() {
                 </div>
               ) : (
                 topics.map((topic) => (
-                  <div key={topic.id} className="card-body flex items-start gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                          {topic.category}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          by {topic.submitted_by}
-                        </span>
+                  <div key={topic.id} className="card-body">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          {editingCategory === topic.id ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <select
+                                value={selectedCategory ? `${selectedCategory.domain}|${selectedCategory.subdomain}` : `${topic.domain}|${topic.subdomain}`}
+                                onChange={(e) => {
+                                  const [domain, subdomain] = e.target.value.split('|');
+                                  setSelectedCategory({ domain, subdomain });
+                                }}
+                                className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                              >
+                                {Object.entries(taxonomy).map(([domain, subdomains]) => (
+                                  <optgroup key={domain} label={domain}>
+                                    {subdomains.map((sub) => (
+                                      <option key={sub.subdomain} value={`${domain}|${sub.subdomain}`}>
+                                        {sub.subdomain}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleRecategorize(topic.id)}
+                                disabled={actionLoading === topic.id}
+                                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {actionLoading === topic.id ? '...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingCategory(null);
+                                  setSelectedCategory(null);
+                                }}
+                                className="text-xs px-2 py-1 text-gray-600 hover:text-gray-800"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-100 text-primary-700">
+                                {topic.domain}
+                              </span>
+                              <span className="text-gray-400">&gt;</span>
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                                {topic.subdomain || topic.category}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setEditingCategory(topic.id);
+                                  setSelectedCategory({ domain: topic.domain, subdomain: topic.subdomain || topic.category });
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 ml-1"
+                              >
+                                Edit
+                              </button>
+                            </>
+                          )}
+                          <span className="text-xs text-gray-400">
+                            by {topic.submitted_by}
+                          </span>
+                        </div>
+                        <h3 className="font-medium text-gray-900">{topic.title}</h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Submitted {new Date(topic.created_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <h3 className="font-medium text-gray-900">{topic.title}</h3>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Submitted {new Date(topic.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleModerate(topic.id, 'approve')}
-                        disabled={actionLoading === topic.id}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
-                      >
-                        {actionLoading === topic.id ? '...' : 'Approve'}
-                      </button>
-                      <button
-                        onClick={() => handleModerate(topic.id, 'reject')}
-                        disabled={actionLoading === topic.id}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
-                      >
-                        {actionLoading === topic.id ? '...' : 'Reject'}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleModerate(topic.id, 'approve')}
+                          disabled={actionLoading === topic.id}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                          {actionLoading === topic.id ? '...' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleModerate(topic.id, 'reject')}
+                          disabled={actionLoading === topic.id}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                          {actionLoading === topic.id ? '...' : 'Reject'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
