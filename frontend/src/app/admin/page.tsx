@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { Topic, DebateListItem, getDebates, TaxonomySubdomain, getTaxonomy } from '@/lib/api';
+import { Topic, DebateListItem, getDebates, TaxonomyDomain, getTaxonomy } from '@/lib/api';
 
 const ADMIN_EMAIL = 'kevinklein333@gmail.com'; // Your admin email
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
@@ -94,7 +94,7 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [costDays, setCostDays] = useState(30);
-  const [taxonomy, setTaxonomy] = useState<Record<string, TaxonomySubdomain[]>>({});
+  const [taxonomy, setTaxonomy] = useState<TaxonomyDomain[]>([]);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<{ domain: string; subdomain: string } | null>(null);
 
@@ -162,7 +162,7 @@ export default function AdminPage() {
   async function fetchTaxonomy() {
     try {
       const data = await getTaxonomy();
-      setTaxonomy(data);
+      setTaxonomy(data.domains);
     } catch (err) {
       console.error('Taxonomy fetch error:', err);
     }
@@ -381,10 +381,10 @@ export default function AdminPage() {
                                 }}
                                 className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                               >
-                                {Object.entries(taxonomy).map(([domain, subdomains]) => (
-                                  <optgroup key={domain} label={domain}>
-                                    {subdomains.map((sub) => (
-                                      <option key={sub.subdomain} value={`${domain}|${sub.subdomain}`}>
+                                {taxonomy.map((domainItem) => (
+                                  <optgroup key={domainItem.domain} label={domainItem.domain}>
+                                    {domainItem.subdomains.map((sub) => (
+                                      <option key={sub.subdomain} value={`${domainItem.domain}|${sub.subdomain}`}>
                                         {sub.subdomain}
                                       </option>
                                     ))}
