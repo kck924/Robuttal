@@ -365,24 +365,17 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
         judge_name = judge.name
         auditor_name = auditor.name
 
-        # Tweet announcement when debate starts (only on first attempt, not restarts)
-        if attempt == 0:
-            try:
-                from app.services.twitter import announce_debate
-
-                await announce_debate(
-                    debate_id=debate.id,
-                    topic_title=topic.title,
-                    pro_model_name=debater_pro.name,
-                    pro_elo=debater_pro.elo_rating,
-                    pro_provider=debater_pro.provider,
-                    con_model_name=debater_con.name,
-                    con_elo=debater_con.elo_rating,
-                    con_provider=debater_con.provider,
-                )
-            except Exception as twitter_error:
-                # Don't let Twitter failures affect the debate
-                logger.warning(f"Failed to tweet debate announcement: {twitter_error}")
+        # Store tweet data for after successful debate creation
+        tweet_data = {
+            "debate_id": debate.id,
+            "topic_title": topic.title,
+            "pro_model_name": debater_pro.name,
+            "pro_elo": debater_pro.elo_rating,
+            "pro_provider": debater_pro.provider,
+            "con_model_name": debater_con.name,
+            "con_elo": debater_con.elo_rating,
+            "con_provider": debater_con.provider,
+        } if attempt == 0 else None
 
         try:
             # 1. Run debate (opening, rebuttal, cross-exam, closing)
@@ -401,6 +394,18 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
             # This ensures the judge service sees all the entries
             await db.commit()
             logger.info(f"Debate {debate_id_str} completed debate phase, ready for judgment")
+
+            # Tweet announcement AFTER debate is committed (only on first attempt)
+            # This ensures we don't tweet about debates that fail to start
+            if tweet_data:
+                try:
+                    from app.services.twitter import announce_debate
+
+                    await announce_debate(**tweet_data)
+                    logger.info(f"Tweeted announcement for debate {debate_id_str}")
+                except Exception as twitter_error:
+                    # Don't let Twitter failures affect the debate
+                    logger.warning(f"Failed to tweet debate announcement: {twitter_error}")
 
             # 2. Judge the debate
             logger.info(f"Starting judgment for debate {debate_id_str} with judge {judge_name}")
