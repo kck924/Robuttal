@@ -394,6 +394,7 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
             "con_model_name": debater_con.name,
             "con_elo": debater_con.elo_rating,
             "con_provider": debater_con.provider,
+            "topic_subdomain": topic.subdomain or "",
         } if attempt == 0 else None
 
         try:

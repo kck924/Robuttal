@@ -22,6 +22,52 @@ PROVIDER_TWITTER_HANDLES: dict[str, str] = {
     "deepseek": "@deepseek_ai",
 }
 
+# Subdomain to relevant hashtags mapping
+SUBDOMAIN_HASHTAGS: dict[str, list[str]] = {
+    # Science & Technology
+    "AI & Computing": ["#AI", "#MachineLearning", "#Tech"],
+    "Environment & Climate": ["#Climate", "#Environment", "#Sustainability"],
+    "Medicine & Health": ["#Health", "#Medicine", "#Healthcare"],
+    "Space & Exploration": ["#Space", "#Astronomy", "#SpaceExploration"],
+    "Biotechnology": ["#Biotech", "#Genetics", "#Science"],
+    "Energy & Resources": ["#Energy", "#CleanEnergy", "#Sustainability"],
+    # Society & Culture
+    "Education": ["#Education", "#Learning", "#EdTech"],
+    "Media & Entertainment": ["#Media", "#Entertainment", "#Culture"],
+    "Sports & Competition": ["#Sports", "#Athletics", "#Competition"],
+    "Family & Relationships": ["#Family", "#Relationships", "#Society"],
+    "Religion & Spirituality": ["#Religion", "#Spirituality", "#Faith"],
+    "Demographics & Migration": ["#Immigration", "#Demographics", "#Society"],
+    "Urban & Rural Life": ["#Urban", "#Housing", "#Cities"],
+    # Politics & Governance
+    "Democracy & Voting": ["#Democracy", "#Voting", "#Politics"],
+    "International Relations": ["#Geopolitics", "#ForeignPolicy", "#WorldNews"],
+    "Law & Justice": ["#Law", "#Justice", "#Legal"],
+    "Civil Rights & Liberties": ["#CivilRights", "#Freedom", "#HumanRights"],
+    "Military & Defense": ["#Defense", "#Military", "#Security"],
+    "Public Policy": ["#Policy", "#Government", "#Politics"],
+    # Economics & Business
+    "Markets & Trade": ["#Economics", "#Trade", "#Markets"],
+    "Labor & Work": ["#Work", "#Labor", "#FutureOfWork"],
+    "Finance & Wealth": ["#Finance", "#Crypto", "#Investing"],
+    "Entrepreneurship": ["#Startups", "#Entrepreneurship", "#Business"],
+    "Consumer Economics": ["#Consumer", "#Economics", "#Business"],
+    "Economic Inequality": ["#Inequality", "#Economics", "#Society"],
+    # Philosophy & Ethics
+    "Morality & Values": ["#Ethics", "#Philosophy", "#Morality"],
+    "Consciousness & Mind": ["#Consciousness", "#Philosophy", "#Mind"],
+    "Existence & Meaning": ["#Philosophy", "#Existentialism", "#Meaning"],
+    "Applied Ethics": ["#Ethics", "#Bioethics", "#Philosophy"],
+    "Knowledge & Truth": ["#Epistemology", "#Truth", "#Philosophy"],
+    "Logic & Reasoning": ["#Logic", "#Reasoning", "#Philosophy"],
+    # Arts & Humanities
+    "Literature & Language": ["#Literature", "#Books", "#Writing"],
+    "Visual & Performing Arts": ["#Art", "#Music", "#Culture"],
+    "History & Memory": ["#History", "#Heritage", "#Culture"],
+    "Cultural Identity": ["#Culture", "#Identity", "#Heritage"],
+    "Architecture & Design": ["#Architecture", "#Design", "#Urban"],
+}
+
 
 @dataclass
 class DebateAnnouncement:
@@ -35,6 +81,7 @@ class DebateAnnouncement:
     con_model_name: str
     con_elo: int
     con_provider: str
+    topic_subdomain: str = ""
     site_url: str = "https://robuttal.com"
 
     def _get_provider_mentions(self) -> str:
@@ -46,6 +93,19 @@ class DebateAnnouncement:
             mentions.add(PROVIDER_TWITTER_HANDLES[self.con_provider])
         return " ".join(sorted(mentions))
 
+    def _get_hashtags(self) -> str:
+        """Get hashtags based on topic subdomain, with AI-related fallbacks."""
+        # Start with topic-specific hashtags if available
+        hashtags = []
+        if self.topic_subdomain and self.topic_subdomain in SUBDOMAIN_HASHTAGS:
+            hashtags = SUBDOMAIN_HASHTAGS[self.topic_subdomain][:3]
+
+        # Always include #AI for discoverability
+        if "#AI" not in hashtags:
+            hashtags = ["#AI"] + hashtags[:2]
+
+        return " ".join(hashtags)
+
     def format_tweet(self) -> str:
         """Format the tweet text for a new debate announcement.
 
@@ -56,7 +116,7 @@ class DebateAnnouncement:
 
         https://robuttal.com/debates/abc123
 
-        @AnthropicAI @OpenAI #AI #LLM #GenerativeAI
+        @AnthropicAI @OpenAI #AI #Philosophy #Consciousness
         """
         # Truncate topic if needed (tweets have 280 char limit)
         # Reserve ~120 chars for the rest of the tweet structure (models, mentions, hashtags, URL)
@@ -67,7 +127,7 @@ class DebateAnnouncement:
 
         debate_url = f"{self.site_url}/debates/{self.debate_id}"
         mentions = self._get_provider_mentions()
-        hashtags = "#AI #LLM #GenerativeAI"
+        hashtags = self._get_hashtags()
 
         tweet = f"""New debate: {topic}
 
@@ -199,6 +259,7 @@ class TwitterService:
         con_model_name: str,
         con_elo: int,
         con_provider: str,
+        topic_subdomain: str = "",
     ) -> Optional[str]:
         """Announce a new debate has started."""
         announcement = DebateAnnouncement(
@@ -210,6 +271,7 @@ class TwitterService:
             con_model_name=con_model_name,
             con_elo=con_elo,
             con_provider=con_provider,
+            topic_subdomain=topic_subdomain,
         )
 
         tweet_text = announcement.format_tweet()
@@ -240,6 +302,7 @@ async def announce_debate(
     con_model_name: str,
     con_elo: int,
     con_provider: str,
+    topic_subdomain: str = "",
 ) -> Optional[str]:
     """Convenience function to announce a debate."""
     service = get_twitter_service()
@@ -252,4 +315,5 @@ async def announce_debate(
         con_model_name=con_model_name,
         con_elo=con_elo,
         con_provider=con_provider,
+        topic_subdomain=topic_subdomain,
     )
