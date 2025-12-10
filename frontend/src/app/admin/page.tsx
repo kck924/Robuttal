@@ -228,6 +228,31 @@ export default function AdminPage() {
     }
   }
 
+  async function handleRetryJudging(debateId: string) {
+    setActionLoading(debateId);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/debates/${debateId}/retry-judging`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to retry judging');
+      }
+
+      const result = await res.json();
+      alert(`Judging completed! Winner: ${result.winner || 'Unknown'}`);
+
+      // Refresh debates list
+      fetchDebates();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to retry judging');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleModerate(topicId: string, action: 'approve' | 'reject') {
     setActionLoading(topicId);
     try {
@@ -557,6 +582,15 @@ export default function AdminPage() {
                             >
                               View
                             </Link>
+                            {debate.status === 'judging' && (
+                              <button
+                                onClick={() => handleRetryJudging(debate.id)}
+                                disabled={actionLoading === debate.id}
+                                className="text-sm text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50"
+                              >
+                                {actionLoading === debate.id ? '...' : 'Retry Judging'}
+                              </button>
+                            )}
                             {deleteConfirm === debate.id ? (
                               <>
                                 <button
