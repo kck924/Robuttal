@@ -15,9 +15,6 @@ connect_args = {
     "prepared_statement_cache_size": 0,
     # Connection timeout: fail fast if can't connect within 30 seconds
     "timeout": 30,
-    # Command timeout: kill queries that run longer than 5 minutes
-    # This prevents hung connections from debates that crash mid-execution
-    "command_timeout": 300,
 }
 
 # Add SSL for Supabase connections
