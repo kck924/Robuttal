@@ -753,15 +753,29 @@ async def _get_top_voted_user_topic(
     db: AsyncSession,
     min_votes: int,
 ) -> Topic | None:
-    """Get the top-voted user-submitted topic with minimum votes.
+    """Get the top-voted topic with minimum votes.
 
-    User topics must be approved by moderator before being eligible.
+    Eligible topics:
+    - User-submitted topics that have been approved by a moderator
+    - Seed topics that are still pending (highly upvoted by community)
+
+    This allows both user submissions and popular seed topics to get priority.
     """
     result = await db.execute(
         select(Topic)
         .where(
-            Topic.source == TopicSource.USER,
-            Topic.status == TopicStatus.APPROVED,
+            or_(
+                # User topics must be approved
+                and_(
+                    Topic.source == TopicSource.USER,
+                    Topic.status == TopicStatus.APPROVED,
+                ),
+                # Seed topics just need to be pending (not already debated)
+                and_(
+                    Topic.source == TopicSource.SEED,
+                    Topic.status == TopicStatus.PENDING,
+                ),
+            ),
             Topic.vote_count >= min_votes,
         )
         .order_by(Topic.vote_count.desc(), Topic.created_at.asc())
