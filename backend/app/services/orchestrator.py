@@ -207,6 +207,10 @@ class DebateOrchestrator:
         """
         Run through all debate phases and return the completed debate.
 
+        Each phase is committed separately to ensure progress is saved even if
+        a connection drops mid-debate. This allows the watchdog to resume from
+        the last completed phase.
+
         Returns:
             The debate with status IN_PROGRESS or JUDGING (ready for judgment)
         """
@@ -215,28 +219,47 @@ class DebateOrchestrator:
         # Update status to in_progress
         self.debate.status = DebateStatus.IN_PROGRESS
         self.debate.started_at = datetime.utcnow()
-        await self.db.flush()
-
+        await self.db.commit()  # Commit status change so debate shows as in_progress
         logger.info(f"Starting debate {self.debate_id} on topic: {self.debate.topic.title}")
 
+        # Check if we're resuming a partial debate
+        completed_phases = {entry.phase for entry in self.transcript}
+
         # Phase 1: Opening Statements
-        await self._run_opening_phase()
+        if DebatePhase.OPENING not in completed_phases or self._phase_incomplete(DebatePhase.OPENING, 2):
+            await self._run_opening_phase()
+            await self.db.commit()  # Save opening statements
+            logger.info(f"Debate {self.debate_id}: Opening phase committed")
 
         # Phase 2: Rebuttals
-        await self._run_rebuttal_phase()
+        if DebatePhase.REBUTTAL not in completed_phases or self._phase_incomplete(DebatePhase.REBUTTAL, 2):
+            await self._run_rebuttal_phase()
+            await self.db.commit()  # Save rebuttals
+            logger.info(f"Debate {self.debate_id}: Rebuttal phase committed")
 
-        # Phase 3: Cross-Examination (2 rounds)
-        await self._run_cross_examination_phase()
+        # Phase 3: Cross-Examination (2 rounds = 4 turns)
+        if DebatePhase.CROSS_EXAMINATION not in completed_phases or self._phase_incomplete(DebatePhase.CROSS_EXAMINATION, 4):
+            await self._run_cross_examination_phase()
+            await self.db.commit()  # Save cross-examination
+            logger.info(f"Debate {self.debate_id}: Cross-examination phase committed")
 
         # Phase 4: Closing Arguments
-        await self._run_closing_phase()
+        if DebatePhase.CLOSING not in completed_phases or self._phase_incomplete(DebatePhase.CLOSING, 2):
+            await self._run_closing_phase()
+            await self.db.commit()  # Save closing arguments
+            logger.info(f"Debate {self.debate_id}: Closing phase committed")
 
         # Update status to judging
         self.debate.status = DebateStatus.JUDGING
-        await self.db.flush()
+        await self.db.commit()
 
         logger.info(f"Debate {self.debate_id} completed debate phase, ready for judgment")
         return self.debate
+
+    def _phase_incomplete(self, phase: DebatePhase, expected_entries: int) -> bool:
+        """Check if a phase has fewer entries than expected (incomplete)."""
+        phase_entries = [e for e in self.transcript if e.phase == phase]
+        return len(phase_entries) < expected_entries
 
     async def _run_opening_phase(self) -> None:
         """Run opening statements: Pro first, then Con."""

@@ -432,8 +432,6 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
             debate.auditor_id = auditor.id
             debate.status = DebateStatus.SCHEDULED
 
-        await db.flush()
-
         # Store model names before any commits (SQLAlchemy expires objects after commit)
         debate_id_str = str(debate.id)
         judge_name = judge.name
@@ -452,8 +450,15 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
             "topic_subdomain": topic.subdomain or "",
         } if attempt == 0 else None
 
+        # Commit debate record BEFORE running phases - this ensures the debate
+        # exists in DB even if connection drops during execution. The watchdog
+        # can then resume partial debates.
+        await db.commit()
+        logger.info(f"Debate {debate_id_str} created and committed to database")
+
         try:
             # 1. Run debate (opening, rebuttal, cross-exam, closing)
+            # The orchestrator now commits after each phase for resilience
             orchestrator = DebateOrchestrator(db, debate.id)
             await orchestrator.run_debate()
 
@@ -465,9 +470,6 @@ async def run_single_debate(db: AsyncSession) -> Debate | None:
                     f"content filter excuse(s) during debate"
                 )
 
-            # Flush to persist transcript entries, then commit and start fresh session
-            # This ensures the judge service sees all the entries
-            await db.commit()
             logger.info(f"Debate {debate_id_str} completed debate phase, ready for judgment")
 
             # Tweet announcement AFTER debate is committed (only on first attempt)
