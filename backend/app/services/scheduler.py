@@ -46,6 +46,18 @@ STUCK_DEBATE_THRESHOLD_MINUTES = 5
 # Maximum recovery attempts per stuck debate in a single watchdog run
 MAX_WATCHDOG_RECOVERY_ATTEMPTS = 2
 
+# Job timeout settings (prevents hung jobs from blocking the scheduler)
+# A full debate (with all phases, judging, and audit) should complete in ~8 minutes
+# We give it 15 minutes as a generous upper bound before force-killing
+DEBATE_JOB_TIMEOUT_SECONDS = 15 * 60  # 15 minutes
+
+# Cleanup job should be quick - just checking DB and maybe retrying one audit
+CLEANUP_JOB_TIMEOUT_SECONDS = 5 * 60  # 5 minutes
+
+# How long after a scheduled time we'll still run a missed job (in seconds)
+# If we miss a debate by more than this, skip it rather than running late
+MISFIRE_GRACE_TIME_SECONDS = 10 * 60  # 10 minutes
+
 
 class DebateScheduler:
     """Scheduler for running automated debates."""
@@ -62,6 +74,9 @@ class DebateScheduler:
                 CronTrigger(hour=hour, minute=minute, timezone="UTC"),
                 id=f"debate_{hour:02d}_{minute:02d}",
                 replace_existing=True,
+                misfire_grace_time=MISFIRE_GRACE_TIME_SECONDS,
+                coalesce=True,  # If multiple misfires, only run once
+                max_instances=1,  # Explicit: only one debate job at a time
             )
             logger.info(f"Scheduled debate at {hour:02d}:{minute:02d} UTC")
 
@@ -74,6 +89,9 @@ class DebateScheduler:
                 CronTrigger(hour=watchdog_hour, minute=watchdog_minute, timezone="UTC"),
                 id=f"watchdog_{hour:02d}_{minute:02d}",
                 replace_existing=True,
+                misfire_grace_time=MISFIRE_GRACE_TIME_SECONDS,
+                coalesce=True,
+                max_instances=1,
             )
             logger.info(f"Scheduled watchdog at {watchdog_hour:02d}:{watchdog_minute:02d} UTC (5 min after debate)")
 
@@ -83,6 +101,9 @@ class DebateScheduler:
             CronTrigger(minute="*/10", timezone="UTC"),
             id="cleanup_stuck_debates",
             replace_existing=True,
+            misfire_grace_time=MISFIRE_GRACE_TIME_SECONDS,
+            coalesce=True,
+            max_instances=1,
         )
         logger.info("Scheduled stuck debate cleanup every 10 minutes (safety net)")
 
@@ -95,9 +116,27 @@ class DebateScheduler:
         logger.info("Debate scheduler stopped")
 
     async def _run_scheduled_debate(self):
-        """Run a single scheduled debate with retry logic for transient DB errors."""
+        """Run a single scheduled debate with retry logic for transient DB errors.
+
+        This method has a hard timeout to prevent hung API calls from blocking
+        the entire scheduler. If the timeout is exceeded, the job is killed and
+        the watchdog will clean up any partially-completed debate.
+        """
         logger.info("Starting scheduled debate")
 
+        try:
+            async with asyncio.timeout(DEBATE_JOB_TIMEOUT_SECONDS):
+                await self._run_scheduled_debate_impl()
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Scheduled debate job timed out after {DEBATE_JOB_TIMEOUT_SECONDS}s. "
+                "The watchdog will attempt to recover any partial progress."
+            )
+        except Exception as e:
+            logger.error(f"Scheduled debate job failed unexpectedly: {e}", exc_info=True)
+
+    async def _run_scheduled_debate_impl(self):
+        """Implementation of scheduled debate logic (called with timeout wrapper)."""
         max_db_retries = 3
         retry_delay = 10  # seconds
 
@@ -127,6 +166,24 @@ class DebateScheduler:
         """
         Watchdog job that finds and completes stuck debates.
 
+        This method has a hard timeout to prevent it from blocking the scheduler.
+        """
+        logger.info("Running stuck debate cleanup check")
+        try:
+            async with asyncio.timeout(CLEANUP_JOB_TIMEOUT_SECONDS):
+                await self._cleanup_stuck_debates_impl()
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Cleanup job timed out after {CLEANUP_JOB_TIMEOUT_SECONDS}s. "
+                "Will retry on next scheduled run."
+            )
+        except Exception as e:
+            logger.error(f"Stuck debate cleanup failed unexpectedly: {e}", exc_info=True)
+
+    async def _cleanup_stuck_debates_impl(self):
+        """
+        Implementation of stuck debate cleanup (called with timeout wrapper).
+
         Looks for debates that have been in 'judging' or 'in_progress' status
         for longer than STUCK_DEBATE_THRESHOLD_MINUTES and attempts to complete them.
 
@@ -135,7 +192,6 @@ class DebateScheduler:
         - Retries with a different auditor if the first attempt times out
         - Handles TimeoutError by switching to a replacement model
         """
-        logger.info("Running stuck debate cleanup check")
         try:
             async with async_session_maker() as db:
                 # Find debates stuck in judging OR in_progress status
@@ -164,7 +220,6 @@ class DebateScheduler:
                 logger.warning(f"Found {len(stuck_debates)} stuck debate(s), attempting recovery")
 
                 for debate in stuck_debates:
-                    debate_id = str(debate.id)
                     await self._recover_stuck_debate(db, debate)
 
         except Exception as e:
