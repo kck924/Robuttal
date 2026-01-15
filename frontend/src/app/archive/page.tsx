@@ -1,7 +1,7 @@
 import { getDebates, getModels } from '@/lib/api';
 import ArchiveContent from '@/components/ArchiveContent';
 
-export const revalidate = 15; // Revalidate every 15 seconds
+export const revalidate = 60; // Revalidate every 60 seconds
 
 async function getArchiveData() {
   try {

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getLiveDebate, getDebate, getDebates, getDebateVotes, getTodaysSchedule, getTopics, DailyScheduleResponse, Topic, DebateListItem, DebateDetail } from '@/lib/api';
 import ArenaContent from '@/components/ArenaContent';
 
-export const revalidate = 10; // Revalidate every 10 seconds
+export const revalidate = 60; // Revalidate every 60 seconds
 
 /**
  * Convert a DebateListItem to a minimal DebateDetail for fallback display.
