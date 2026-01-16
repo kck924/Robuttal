@@ -846,7 +846,8 @@ async def _build_elo_trend(
     Returns Elo after each debate, ordered by debate completion time.
     X-axis will be debate number (1, 2, 3, ...).
     """
-    # Get ALL completed debates for this model, ordered by time
+    # Get recent completed debates for this model, ordered by time
+    # Limit to last 100 debates to reduce database egress
     debates_query = (
         select(Debate)
         .options(
@@ -862,11 +863,13 @@ async def _build_elo_trend(
             ),
             Debate.completed_at.isnot(None),
         )
-        .order_by(Debate.completed_at.asc())
+        .order_by(Debate.completed_at.desc())
+        .limit(100)
     )
 
     result = await db.execute(debates_query)
-    debates = result.scalars().all()
+    # Reverse to get chronological order (oldest first) for the chart
+    debates = list(reversed(result.scalars().all()))
 
     if not debates:
         return None
@@ -916,7 +919,8 @@ async def _build_elo_history(
     model_histories: list[ModelEloHistory] = []
 
     for model in models:
-        # Get all completed debates where this model participated, ordered by time
+        # Get recent completed debates where this model participated
+        # Limit to last 100 debates per model to reduce database egress
         debates_query = (
             select(Debate)
             .where(
@@ -927,11 +931,13 @@ async def _build_elo_history(
                 ),
                 Debate.completed_at.isnot(None),
             )
-            .order_by(Debate.completed_at.asc())
+            .order_by(Debate.completed_at.desc())
+            .limit(100)
         )
 
         result = await db.execute(debates_query)
-        debates = result.scalars().all()
+        # Reverse to get chronological order (oldest first) for the chart
+        debates = list(reversed(result.scalars().all()))
 
         data_points: list[EloDataPoint] = []
 
